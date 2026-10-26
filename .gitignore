@@ -9,3 +9,4 @@ Builds/
 *.blend2
 Art/*.log
 **/__pycache__/
+Build/Windows/FileOpenOrder/
