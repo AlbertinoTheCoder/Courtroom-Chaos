@@ -1,0 +1,80 @@
+{
+  "Oliver": {
+    "bones": 17,
+    "vertices": 23736,
+    "clips": [
+      "Oliver_Idle",
+      "Oliver_Speaking",
+      "Oliver_Pointing",
+      "Oliver_Angry",
+      "Oliver_Nervous",
+      "Oliver_Celebrate",
+      "Oliver_Shock"
+    ]
+  },
+  "Victor": {
+    "bones": 17,
+    "vertices": 23736,
+    "clips": [
+      "Victor_Idle",
+      "Victor_Speaking",
+      "Victor_Pointing",
+      "Victor_Angry",
+      "Victor_Nervous",
+      "Victor_Celebrate",
+      "Victor_Shock"
+    ]
+  },
+  "Bumble": {
+    "bones": 17,
+    "vertices": 21720,
+    "clips": [
+      "Bumble_Idle",
+      "Bumble_Speaking",
+      "Bumble_Pointing",
+      "Bumble_Angry",
+      "Bumble_Nervous",
+      "Bumble_Celebrate",
+      "Bumble_Shock"
+    ]
+  },
+  "Benny": {
+    "bones": 17,
+    "vertices": 25944,
+    "clips": [
+      "Benny_Idle",
+      "Benny_Speaking",
+      "Benny_Pointing",
+      "Benny_Angry",
+      "Benny_Nervous",
+      "Benny_Celebrate",
+      "Benny_Shock"
+    ]
+  },
+  "Milo": {
+    "bones": 17,
+    "vertices": 26104,
+    "clips": [
+      "Milo_Idle",
+      "Milo_Speaking",
+      "Milo_Pointing",
+      "Milo_Angry",
+      "Milo_Nervous",
+      "Milo_Celebrate",
+      "Milo_Shock"
+    ]
+  },
+  "Brick": {
+    "bones": 17,
+    "vertices": 25848,
+    "clips": [
+      "Brick_Idle",
+      "Brick_Speaking",
+      "Brick_Pointing",
+      "Brick_Angry",
+      "Brick_Nervous",
+      "Brick_Celebrate",
+      "Brick_Shock"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "title": "The Stolen Golden Gavel",
+  "canonical_timeline": [
+    [
+      "17:45",
+      "Gavel inventoried on bench"
+    ],
+    [
+      "18:00",
+      "Cleaning begins"
+    ],
+    [
+      "18:05",
+      "Brick moves gavel on cart 04 to storage B"
+    ],
+    [
+      "19:10",
+      "Benny carries mustard bottle out"
+    ],
+    [
+      "20:00",
+      "Gavel incorrectly marked missing"
+    ],
+    [
+      "20:15",
+      "Storage photo shows gavel"
+    ]
+  ],
+  "deductions": [
+    {
+      "statement": "Benny carried the gavel",
+      "evidence": "Mustard dispenser"
+    },
+    {
+      "statement": "Nobody moved objects",
+      "evidence": "Maintenance report"
+    },
+    {
+      "statement": "Gavel never reached storage",
+      "evidence": "Storage photograph"
+    }
+  ]
+}
