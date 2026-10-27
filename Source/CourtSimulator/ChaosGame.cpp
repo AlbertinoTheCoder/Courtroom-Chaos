@@ -1,5 +1,11 @@
 #include "ChaosGame.h"
 #include "Engine/Canvas.h"
+#include "Engine/Font.h"
+#include "CanvasItem.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Rendering/SlateRenderer.h"
+#include "Styling/CoreStyle.h"
 #include "UnrealClient.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -27,6 +33,7 @@
 #include "Serialization/JsonWriter.h"
 namespace Court {
  const FLinearColor Ink(.025f,.035f,.065f),Cream(.96f,.88f,.72f),Gold(.91f,.64f,.22f),Teal(.015f,.17f,.15f),Red(.46f,.035f,.075f);
+ FSlateFontInfo UIFont(float Size,float Scale,const UFont* Font){return FSlateFontInfo(Font,FMath::Max(8,FMath::RoundToInt(Size*Scale*.75f)),TEXT("Regular"));}
  bool Testing(){return FParse::Param(FCommandLine::Get(),TEXT("CourtSelfTest"))||FParse::Param(FCommandLine::Get(),TEXT("CourtVisualTest"));}
  FString File(const FString& Name){return FPaths::ProjectSavedDir()/(Testing()?TEXT("Test_")+Name:Name);}
  bool Read(const FString& Path,TSharedPtr<FJsonObject>& J){FString S;if(!FFileHelper::LoadFileToString(S,*Path))return false;return FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(S),J)&&J.IsValid();}
@@ -43,7 +50,7 @@ int32 AChaosHUD::StageIndex()const{return Phase-2;}
 const FChaosStage* AChaosHUD::Stage()const{return Case&&Case->Stages.IsValidIndex(StageIndex())?&Case->Stages[StageIndex()]:nullptr;}
 bool AChaosHUD::Unlocked(int32 I)const{return Case&&Case->Evidence.IsValidIndex(I)&&Case->Evidence[I].UnlockStage<=FMath::Max(0,Phase-2);}
 void AChaosHUD::BeginPlay(){
- Super::BeginPlay();auto P=GetOwningPlayerController();P->bShowMouseCursor=true;P->bEnableClickEvents=true;P->bEnableMouseOverEvents=true;
+ Super::BeginPlay();RuntimeUIFont=NewObject<UFont>(this);RuntimeUIFont->FontCacheType=EFontCacheType::Runtime;RuntimeUIFont->GetMutableInternalCompositeFont()=*FCoreStyle::GetDefaultFont();auto P=GetOwningPlayerController();P->bShowMouseCursor=true;P->bEnableClickEvents=true;P->bEnableMouseOverEvents=true;
  FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);P->SetInputMode(Mode);if(GetWorld()->GetGameViewport())GetWorld()->GetGameViewport()->SetMouseCaptureMode(EMouseCaptureMode::CaptureDuringMouseDown);
  Case=LoadObject<UChaosCaseData>(nullptr,TEXT("/Game/Cases/DA_GoldenGavel.DA_GoldenGavel"));
  if(!Case){Error=TEXT("The case data could not be loaded. Rebuild the project content.");return;}
@@ -179,11 +186,15 @@ void AChaosHUD::Action(FString Id){
  }
 }
 void AChaosHUD::NotifyHitBoxClick(FName N){Action(N.ToString());}
-void AChaosHUD::Label(const FString& S,float X,float Y,float Size,FLinearColor C){DrawText(S,C,X*SX,Y*SY,GEngine->GetMediumFont(),Size*FMath::Min(SX,SY)/16,false);}
+void AChaosHUD::Label(const FString& S,float X,float Y,float Size,FLinearColor C){
+ // Rasterize TrueType glyphs at their final pixel size instead of enlarging a bitmap atlas.
+ FCanvasTextItem Text(FVector2D(FMath::RoundToFloat(X*SX),FMath::RoundToFloat(Y*SY)),FText::FromString(S),Court::UIFont(Size,FMath::Min(SX,SY),RuntimeUIFont),C);
+ Text.BlendMode=SE_BLEND_Translucent;Canvas->DrawItem(Text);
+}
 void AChaosHUD::Panel(float X,float Y,float W,float H,FLinearColor C){DrawRect(C,X*SX,Y*SY,W*SX,H*SY);}
 void AChaosHUD::Texture(UTexture2D* A,float X,float Y,float W,float H,float Alpha){if(A)DrawTexture(A,X*SX,Y*SY,W*SX,H*SY,0,0,1,1,FLinearColor(1,1,1,Alpha),BLEND_Translucent);}
 void AChaosHUD::Sprite(const FString& Name,float X,float Y,float W,float H,float Alpha,float Rotation){if(!Textures.Contains(Name))Textures.Add(Name,LoadObject<UTexture2D>(nullptr,*(TEXT("/Game/UI/")+Name+TEXT(".")+Name)));if(auto T=Textures[Name])DrawTexture(T,X*SX,Y*SY,W*SX,H*SY,0,0,1,1,FLinearColor(1,1,1,Alpha),BLEND_Translucent,1,false,Rotation,FVector2D(.5f,.5f));}
-FString AChaosHUD::Wrap(const FString& S,float Width,float Size){FString Out;TArray<FString> Paragraphs;S.ParseIntoArray(Paragraphs,TEXT("\n"),false);for(int32 I=0;I<Paragraphs.Num();++I){TArray<FString> Words;Paragraphs[I].ParseIntoArrayWS(Words);FString Line;for(const auto& W:Words){FString Candidate=Line.IsEmpty()?W:Line+TEXT(" ")+W;float TW=0,TH=0;GetTextSize(Candidate,TW,TH,GEngine->GetMediumFont(),Size/16);if(TW>Width&&!Line.IsEmpty()){Out+=Line+TEXT("\n");Line=W;}else Line=Candidate;}Out+=Line;if(I<Paragraphs.Num()-1)Out+=TEXT("\n");}return Out;}
+FString AChaosHUD::Wrap(const FString& S,float Width,float Size){FString Out;TArray<FString> Paragraphs;S.ParseIntoArray(Paragraphs,TEXT("\n"),false);for(int32 I=0;I<Paragraphs.Num();++I){TArray<FString> Words;Paragraphs[I].ParseIntoArrayWS(Words);FString Line;for(const auto& W:Words){FString Candidate=Line.IsEmpty()?W:Line+TEXT(" ")+W;const auto Measure=FSlateApplication::Get().GetRenderer()->GetFontMeasureService();const float TW=Measure->Measure(FStringView(Candidate),Court::UIFont(Size,FMath::Min(SX,SY),RuntimeUIFont)).X;if(TW>Width*SX&&!Line.IsEmpty()){Out+=Line+TEXT("\n");Line=W;}else Line=Candidate;}Out+=Line;if(I<Paragraphs.Num()-1)Out+=TEXT("\n");}return Out;}
 void AChaosHUD::Wrapped(const FString& S,float X,float Y,float Width,float Size,FLinearColor C,bool Reveal){FString W=Wrap(S,Width,Size);if(Reveal&&!InstantText)W=W.Left(FMath::Clamp(FMath::FloorToInt(LineElapsed*RevealSpeed),0,W.Len()));Label(W,X,Y,Size,C);}
 void AChaosHUD::Button(const FString& Id,const FString& Caption,float X,float Y,float W,bool Enabled){
  float MX=0,MY=0;GetOwningPlayerController()->GetMousePosition(MX,MY);const bool Hover=MX>=X*SX&&MX<=(X+W)*SX&&MY>=Y*SY&&MY<=(Y+46)*SY;const bool Focus=FocusIndex==Buttons.Num();FString Skin=Id==TEXT("start")||Id==TEXT("present")||Id==TEXT("press")?TEXT("RedButton"):Id==TEXT("evidence")||Id==TEXT("inspect")||Id==TEXT("detail")?TEXT("TealButton"):TEXT("InkButton");Sprite(Skin,X,Y-(Enabled&&(Hover||Focus)?2:0),W,50,Enabled?1:.4f);Label(Caption,X+16,Y+13-(Enabled&&(Hover||Focus)?2:0),19,Enabled?Court::Cream:FLinearColor(.35f,.35f,.35f));if(Enabled){if(Focus)DrawRect(Court::Gold,(X+6)*SX,(Y+6)*SY,3*SX,32*SY);Buttons.Add(Id);AddHitBox(FVector2D(X*SX,Y*SY),FVector2D(W*SX,46*SY),FName(Id),true);}}

@@ -5,6 +5,7 @@
 #include "ChaosCaseData.h"
 #include "ChaosGame.generated.h"
 class UTexture2D;
+class UFont;
 class UAnimationAsset;
 class UAudioComponent;
 class AStaticMeshActor;
@@ -23,6 +24,7 @@ public:
  void Action(FString Id);
 private:
  UPROPERTY(Transient) TObjectPtr<UChaosCaseData> Case;
+ UPROPERTY(Transient) TObjectPtr<UFont> RuntimeUIFont;
  UPROPERTY(Transient) TMap<FString,TObjectPtr<UTexture2D>> Textures;
  UPROPERTY(Transient) TMap<FString,TObjectPtr<UAnimationAsset>> Animations;
  UPROPERTY(Transient) TObjectPtr<UAudioComponent> MusicAudio;

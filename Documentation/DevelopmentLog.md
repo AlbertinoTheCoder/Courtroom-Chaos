@@ -47,3 +47,8 @@ Final verification completed: editor build succeeded; Windows packaging succeede
 
 
 Cooked-package screenshots matched the editor. Corrected a cleanup lifetime error discovered after the automated screenshot pass: clearing its own executing timer destroyed lambda storage before the next captured access. The isolated capture mode now requests graceful shutdown directly. Standard shadows explicitly match the SM5 renderer, removing the unsupported virtual-shadow-map editor warning.
+
+
+## UI text sharpness — 27 October 2026
+
+Replaced scaled Engine Medium bitmap glyphs with a transient runtime UFont backed by the engine's TrueType composite font. Each label chooses its font size from the current viewport dimensions and snaps its origin to integer pixels. Text wrapping uses the same font and size as rendering. Menus, dialogue, percentages and buttons now render directly at the target resolution. No player saves or preferences were reset. Verified rendering at 1280x720, including 130% dialogue text; the packaged render pass also exited cleanly at a verified 1920x1080. Captures are saved in Saved/FontQA720 and Saved/FontPackaged1080.
