@@ -15,6 +15,7 @@ function Invoke-BlenderStage([string]$name, [string]$marker) {
 Invoke-BlenderStage 'build_art' 'ART_BUILD_OK'
 Invoke-BlenderStage 'fix_lettering' 'LETTERING_FIXED|Lettering already corrected'
 Invoke-BlenderStage 'finish_props' 'FINISH_PROPS_OK'
+Invoke-BlenderStage 'polish_notice' 'NOTICE_POLISH_OK'
 Invoke-BlenderStage 'build_cast' 'CAST_V2_OK'
 Invoke-BlenderStage 'rig_cast' 'RIG_CAST_OK'
 foreach ($stage in @('build_ui','finish_ui','build_audio')) {

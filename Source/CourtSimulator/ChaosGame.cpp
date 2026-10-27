@@ -292,7 +292,7 @@ void AChaosHUD::RunVisualTests(){
  auto Step=MakeShared<int32>(0);auto Timer=MakeShared<FTimerHandle>();
  GetWorld()->GetTimerManager().SetTimer(*Timer,[this,Step,Timer](){
   const int32 View=(*Step)/2;
-  const TArray<FString> Names={TEXT("Settings"),TEXT("Witness"),TEXT("Record"),TEXT("Mustard3D"),TEXT("Document"),TEXT("Transcript"),TEXT("Closing"),TEXT("Gavel"),TEXT("Results"),TEXT("DeskSlam"),TEXT("GoldenGavel3D"),TEXT("Credits"),TEXT("Cases")};
+  const TArray<FString> Names={TEXT("Settings"),TEXT("Witness"),TEXT("Record"),TEXT("Mustard3D"),TEXT("Document"),TEXT("Transcript"),TEXT("Closing"),TEXT("Gavel"),TEXT("Results"),TEXT("DeskSlam"),TEXT("GoldenGavel3D"),TEXT("Credits"),TEXT("Cases"),TEXT("Menu")};
   if(View>=Names.Num()){FPlatformMisc::RequestExit(false);return;}
   if((*Step)%2){FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("VisualQA")/(Names[View]+TEXT(".png")),false,false);}
   else{
@@ -311,6 +311,7 @@ void AChaosHUD::RunVisualTests(){
     case 10:Phase=4;Resolution=false;Selected=5;InspectionRead=true;ExhibitZoom=1;SetScreen(EChaosScreen::Inspect);break;
     case 11:Phase=-1;SetScreen(EChaosScreen::Credits);break;
     case 12:SetScreen(EChaosScreen::Cases);break;
+    case 13:Phase=-1;SetScreen(EChaosScreen::Play);break;
    }
   }
   ++(*Step);

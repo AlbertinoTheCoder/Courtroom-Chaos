@@ -52,3 +52,8 @@ Cooked-package screenshots matched the editor. Corrected a cleanup lifetime erro
 ## UI text sharpness — 27 October 2026
 
 Replaced scaled Engine Medium bitmap glyphs with a transient runtime UFont backed by the engine's TrueType composite font. Each label chooses its font size from the current viewport dimensions and snaps its origin to integer pixels. Text wrapping uses the same font and size as rendering. Menus, dialogue, percentages and buttons now render directly at the target resolution. No player saves or preferences were reset. Verified rendering at 1280x720, including 130% dialogue text; the packaged render pass also exited cleanly at a verified 1920x1080. Captures are saved in Saved/FontQA720 and Saved/FontPackaged1080.
+
+
+## Visible courtroom notice — 27 October 2026
+
+Replaced the small wall sentence centered behind a pillar with a 2.48m framed enamel notice between the columns. The notice uses raised Georgia Bold and Segoe Semibold mesh lettering, a brass frame, burgundy rule heading and high-contrast cream/gold copy. Enlarged the complete warning, including PLEASE DO NOT. Editable text objects remain in CourtroomFinal.blend; export meshes preserve the existing Unreal front-face conversion. Tools/polish_notice.py is idempotent and is part of full art regeneration; Tools/import_notice.py performs a targeted room-mesh update. Added the main menu as the fourteenth automatic visual-review view so the sign can be checked from the player's camera.
