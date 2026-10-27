@@ -4,12 +4,25 @@
     "vertices": 23736,
     "clips": [
       "Oliver_Idle",
+      "Oliver_Listening",
       "Oliver_Speaking",
-      "Oliver_Pointing",
+      "Oliver_Thinking",
+      "Oliver_Confused",
+      "Oliver_Happy",
+      "Oliver_Smug",
       "Oliver_Angry",
       "Oliver_Nervous",
+      "Oliver_Shock",
+      "Oliver_Sad",
+      "Oliver_Suspicious",
+      "Oliver_Frustrated",
+      "Oliver_Pointing",
+      "Oliver_Slam",
+      "Oliver_Gavel",
+      "Oliver_LeanForward",
+      "Oliver_LeanBackward",
       "Oliver_Celebrate",
-      "Oliver_Shock"
+      "Oliver_Embarrassed"
     ]
   },
   "Victor": {
@@ -17,12 +30,25 @@
     "vertices": 23736,
     "clips": [
       "Victor_Idle",
+      "Victor_Listening",
       "Victor_Speaking",
-      "Victor_Pointing",
+      "Victor_Thinking",
+      "Victor_Confused",
+      "Victor_Happy",
+      "Victor_Smug",
       "Victor_Angry",
       "Victor_Nervous",
+      "Victor_Shock",
+      "Victor_Sad",
+      "Victor_Suspicious",
+      "Victor_Frustrated",
+      "Victor_Pointing",
+      "Victor_Slam",
+      "Victor_Gavel",
+      "Victor_LeanForward",
+      "Victor_LeanBackward",
       "Victor_Celebrate",
-      "Victor_Shock"
+      "Victor_Embarrassed"
     ]
   },
   "Bumble": {
@@ -30,12 +56,25 @@
     "vertices": 21720,
     "clips": [
       "Bumble_Idle",
+      "Bumble_Listening",
       "Bumble_Speaking",
-      "Bumble_Pointing",
+      "Bumble_Thinking",
+      "Bumble_Confused",
+      "Bumble_Happy",
+      "Bumble_Smug",
       "Bumble_Angry",
       "Bumble_Nervous",
+      "Bumble_Shock",
+      "Bumble_Sad",
+      "Bumble_Suspicious",
+      "Bumble_Frustrated",
+      "Bumble_Pointing",
+      "Bumble_Slam",
+      "Bumble_Gavel",
+      "Bumble_LeanForward",
+      "Bumble_LeanBackward",
       "Bumble_Celebrate",
-      "Bumble_Shock"
+      "Bumble_Embarrassed"
     ]
   },
   "Benny": {
@@ -43,12 +82,25 @@
     "vertices": 25944,
     "clips": [
       "Benny_Idle",
+      "Benny_Listening",
       "Benny_Speaking",
-      "Benny_Pointing",
+      "Benny_Thinking",
+      "Benny_Confused",
+      "Benny_Happy",
+      "Benny_Smug",
       "Benny_Angry",
       "Benny_Nervous",
+      "Benny_Shock",
+      "Benny_Sad",
+      "Benny_Suspicious",
+      "Benny_Frustrated",
+      "Benny_Pointing",
+      "Benny_Slam",
+      "Benny_Gavel",
+      "Benny_LeanForward",
+      "Benny_LeanBackward",
       "Benny_Celebrate",
-      "Benny_Shock"
+      "Benny_Embarrassed"
     ]
   },
   "Milo": {
@@ -56,12 +108,25 @@
     "vertices": 26104,
     "clips": [
       "Milo_Idle",
+      "Milo_Listening",
       "Milo_Speaking",
-      "Milo_Pointing",
+      "Milo_Thinking",
+      "Milo_Confused",
+      "Milo_Happy",
+      "Milo_Smug",
       "Milo_Angry",
       "Milo_Nervous",
+      "Milo_Shock",
+      "Milo_Sad",
+      "Milo_Suspicious",
+      "Milo_Frustrated",
+      "Milo_Pointing",
+      "Milo_Slam",
+      "Milo_Gavel",
+      "Milo_LeanForward",
+      "Milo_LeanBackward",
       "Milo_Celebrate",
-      "Milo_Shock"
+      "Milo_Embarrassed"
     ]
   },
   "Brick": {
@@ -69,12 +134,25 @@
     "vertices": 25848,
     "clips": [
       "Brick_Idle",
+      "Brick_Listening",
       "Brick_Speaking",
-      "Brick_Pointing",
+      "Brick_Thinking",
+      "Brick_Confused",
+      "Brick_Happy",
+      "Brick_Smug",
       "Brick_Angry",
       "Brick_Nervous",
+      "Brick_Shock",
+      "Brick_Sad",
+      "Brick_Suspicious",
+      "Brick_Frustrated",
+      "Brick_Pointing",
+      "Brick_Slam",
+      "Brick_Gavel",
+      "Brick_LeanForward",
+      "Brick_LeanBackward",
       "Brick_Celebrate",
-      "Brick_Shock"
+      "Brick_Embarrassed"
     ]
   }
 }

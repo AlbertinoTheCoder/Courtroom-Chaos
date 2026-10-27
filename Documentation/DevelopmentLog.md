@@ -33,3 +33,17 @@ The cast now uses rigid-segment skeletal animation, with 17 authored bones per c
 - Standalone build is in `Builds/Windows`; `LaunchGame.bat` prefers it. First-launch PSO compilation hitches were observed; broad hardware/performance validation remains pending.
 
 The current UI uses Unreal Canvas rather than UMG. Case text and contradiction rules currently live in structured C++ arrays; the JSON timeline is a development reference, not a runtime data asset. Further cases should migrate this content to data assets before expansion.
+
+## Golden Gavel finishing pass — 27 October 2026
+
+This section supersedes the earlier acceptance-gap notes. Runtime case strings moved into a validated editable Data Asset. Added consultation/opening/resolution/closing dialogue, closing choices, transcript, typewriter and skip controls, settings/accessibility options, keyboard focus, results/earned badges, atomic versioned saves and invalid-save recovery.
+
+Expanded all six characters to twenty clips each (120 total), including analytical arm poses for synchronized desk slams and gavel strikes. Added separate animated gavel and block, original foley and character vocal bleeps, detailed evidence illustrations, rotatable/zoomable physical exhibits and inspection notes. Runtime uses Canvas and timed C++ choreography, not UMG or Sequencer. No recorded voice acting or external LLM is claimed.
+
+Editor compilation and the expanded integration tests passed before the overnight pause. Contact test measured defense hand (-253,10,130) cm and gavel bottom 195.1 cm against block top 195.5 cm. Regeneration chain now includes finishing props, UI, case Data Asset and final scene import. Final visual and packaged checks are recorded in FinishChecklist.md.
+
+
+Final verification completed: editor build succeeded; Windows packaging succeeded with 391 cooked packages. The packaged executable passed case/save validation, live skeletal movement and contact checks. Thirteen rendered views were reviewed, including 130% text, 3D inspection, closing and results. Fixed an input regression found in real mouse QA: NoCapture suppresses primary mouse-down events in Unreal's game viewport; CaptureDuringMouseDown delivers the click without permanent cursor capture. Reduced initial exhibit scale after detecting an instruction-bar overlap. Added isolated deterministic visual capture mode and a repeatable packaged integration test. Full art regeneration was not repeated over verified assets; Python/PowerShell syntax checks passed. Final editable sources and generated content are checkpointed in Git.
+
+
+Cooked-package screenshots matched the editor. Corrected a cleanup lifetime error discovered after the automated screenshot pass: clearing its own executing timer destroyed lambda storage before the next captured access. The isolated capture mode now requests graceful shutdown directly. Standard shadows explicitly match the SM5 renderer, removing the unsupported virtual-shadow-map editor warning.

@@ -19,7 +19,7 @@ for folder in ['/Game/Courtroom','/Game/Characters']:
   u.MaterialEditingLibrary.connect_material_property(metal,'',u.MaterialProperty.MP_METALLIC)
   if folder=='/Game/Characters':u.MaterialEditingLibrary.set_material_usage(m,u.MaterialUsage.MATUSAGE_SKELETAL_MESH)
   u.MaterialEditingLibrary.recompile_material(m)
-positions={'Oliver':(-300,75,0),'Victor':(300,75,0),'Milo':(500,420,0),'Brick':(720,-120,0),'Benny':(-520,150,0)}
+positions={'Bumble':(0,510,48),'Oliver':(-300,75,0),'Victor':(300,75,0),'Milo':(500,420,0),'Brick':(720,-120,0),'Benny':(-520,150,0)}
 for a in sub.get_all_level_actors():
  name=a.get_actor_label()
  if name in positions:a.set_actor_location(u.Vector(*positions[name]),False,False)

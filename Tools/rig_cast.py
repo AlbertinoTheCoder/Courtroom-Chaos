@@ -1,10 +1,22 @@
 """Create rigid-segment cartoon rigs and authored reusable performance clips."""
 import bpy,os,math,json
-from mathutils import Vector
+from mathutils import Vector,Matrix
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 bpy.ops.wm.open_mainfile(filepath=os.path.join(ROOT,'Art','Blender','Cast.blend'))
 scene=bpy.context.scene;scene.render.fps=24
 widths={'Oliver':.42,'Victor':.48,'Bumble':.64,'Benny':.49,'Milo':.34,'Brick':.61}
+def ease(t):
+ t=max(0,min(1,t));return t*t*(3-2*t)
+def arm_pose(rig,side,target):
+ arm=rig.pose.bones['Arm_'+side];fore=rig.pose.bones['Forearm_'+side];hand=rig.pose.bones['Hand_'+side]
+ shoulder=rig.data.bones[arm.name].head_local.copy();l1=rig.data.bones[arm.name].length;l2=rig.data.bones[fore.name].length
+ delta=Vector(target)-shoulder;distance=max(.02,min(delta.length,l1+l2-.005));direction=delta.normalized();target=shoulder+direction*distance
+ pole=Vector((-1 if side=='L' else 1,-.15,-.15));pole=(pole-direction*pole.dot(direction)).normalized()
+ cosine=max(-1,min(1,(l1*l1+distance*distance-l2*l2)/(2*l1*distance)));elbow=shoulder+direction*l1*cosine+pole*l1*math.sqrt(max(0,1-cosine*cosine))
+ bpy.context.view_layer.update()
+ arm.matrix=Matrix.Translation(shoulder)@(elbow-shoulder).to_track_quat('Y','Z').to_matrix().to_4x4();bpy.context.view_layer.update()
+ fore.matrix=Matrix.Translation(elbow)@(target-elbow).to_track_quat('Y','Z').to_matrix().to_4x4();bpy.context.view_layer.update()
+ hand.matrix=Matrix.Translation(target)@Vector((0,-1,0)).to_track_quat('Y','Z').to_matrix().to_4x4();bpy.context.view_layer.update()
 reports={}
 for name,w in widths.items():
  collection=bpy.data.collections[name]
@@ -64,7 +76,7 @@ for name,w in widths.items():
   if mod.type=='ARMATURE':mesh.modifiers.remove(mod)
  mod=mesh.modifiers.new('Cartoon articulation','ARMATURE');mod.object=rig
  rig.animation_data_create();actions=[]
- for mood in ['Idle','Speaking','Pointing','Angry','Nervous','Celebrate','Shock']:
+ for mood in ['Idle','Listening','Speaking','Thinking','Confused','Happy','Smug','Angry','Nervous','Shock','Sad','Suspicious','Frustrated','Pointing','Slam','Gavel','LeanForward','LeanBackward','Celebrate','Embarrassed']:
   act=bpy.data.actions.new(name=name+'_'+mood);rig.animation_data.action=act;actions.append(act)
   for frame in range(1,50,2):
    t=(frame-1)/48;wave=math.sin(t*2*math.pi);pulse=math.sin(t*8*math.pi)
@@ -89,6 +101,34 @@ for name,w in widths.items():
    if mood=='Shock':
     rig.pose.bones['Head'].rotation_euler[0]=-.16;rig.pose.bones['Mouth'].scale=(.001,.001,.001);rig.pose.bones['OpenMouth'].scale=(1,1,1)
     rig.pose.bones['Brow_L'].location.y=.045;rig.pose.bones['Brow_R'].location.y=.045
+   if mood=='Listening':rig.pose.bones['Head'].rotation_euler[0]=.025*wave
+   if mood=='Thinking':
+    rig.pose.bones['Head'].rotation_euler[2]=.1;arm_pose(rig,'R',(w+.03,-.23,1.65))
+   if mood=='Confused':
+    rig.pose.bones['Head'].rotation_euler[2]=.16*wave;rig.pose.bones['Brow_R'].location.y=.035
+   if mood=='Happy':rig.pose.bones['Mouth'].scale.y=1.35;rig.pose.bones['Head'].rotation_euler[0]=.04*pulse
+   if mood=='Smug':
+    rig.pose.bones['Head'].rotation_euler[0]=-.1;rig.pose.bones['Brow_L'].rotation_euler[2]=.25;rig.pose.bones['Eye_R'].scale.y*=.65
+   if mood=='Sad':
+    rig.pose.bones['Mouth'].scale.y=-.7;rig.pose.bones['Head'].rotation_euler[0]=.15;rig.pose.bones['Brow_L'].rotation_euler[2]=.2;rig.pose.bones['Brow_R'].rotation_euler[2]=-.2
+   if mood=='Suspicious':
+    rig.pose.bones['Head'].rotation_euler[2]=.1;rig.pose.bones['Eye_L'].scale.y*=.5;rig.pose.bones['Eye_R'].scale.y*=.5
+   if mood=='Frustrated':
+    rig.pose.bones['Mouth'].scale.y=-.6;rig.pose.bones['Head'].rotation_euler[2]=.12*pulse;rig.pose.bones['Arm_R'].rotation_euler[0]=-.8
+   if mood=='LeanForward':rig.pose.bones['Spine'].rotation_euler[0]=.15
+   if mood=='LeanBackward':rig.pose.bones['Spine'].rotation_euler[0]=-.12
+   if mood=='Embarrassed':
+    rig.pose.bones['Head'].rotation_euler[0]=.2;rig.pose.bones['Head'].rotation_euler[2]=.12;rig.pose.bones['Mouth'].scale.y=-.4;rig.pose.bones['Eye_L'].scale.y*=.6;rig.pose.bones['Eye_R'].scale.y*=.6
+   if mood=='Slam':
+    rig.pose.bones['Spine'].rotation_euler=(0,0,0)
+    for side,sign in [('L',-1),('R',1)]:
+     rest=Vector((sign*(w+.08),-.12,.94));raised=Vector((sign*(w+.05),-.2,1.55));contact=Vector((sign*(w+.05),-.4,1.30))
+     target=rest.lerp(raised,ease(t/.15)) if t<.15 else raised if t<.26 else raised.lerp(contact,ease((t-.26)/.10)) if t<.36 else contact if t<.60 else contact.lerp(rest,ease((t-.6)/.4))
+     arm_pose(rig,side,target)
+   if mood=='Gavel':
+    rig.pose.bones['Spine'].rotation_euler=(0,0,0);raised=Vector((w*.94,-.25,1.80));contact=Vector((w*.94,-.40,1.72))
+    target=raised if t<.26 else raised.lerp(contact,ease((t-.26)/.10)) if t<.36 else contact if t<.70 else contact.lerp(raised,ease((t-.7)/.3))
+    arm_pose(rig,'R',target)
    for p in rig.pose.bones:
     p.keyframe_insert(data_path='rotation_euler',frame=frame);p.keyframe_insert(data_path='scale',frame=frame);p.keyframe_insert(data_path='location',frame=frame)
   # Repeat the first pose exactly at frame 49 for seamless loops.

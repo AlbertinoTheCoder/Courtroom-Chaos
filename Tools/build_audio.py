@@ -24,3 +24,24 @@ def write(name,values):
 write('CourtroomShuffle',[v/peak for v in samples])
 write('UITick',[.23*math.sin(2*math.pi*(650*t+700*t*t))*math.exp(-t*65) for t in (i/RATE for i in range(int(.08*RATE)))])
 print('AUDIO_BUILD_OK',duration,'seconds')
+
+# Foley and character vocal punctuation, synthesized locally.
+rng=random.Random(716)
+def impact(name,frequency,decay,duration):
+ values=[]
+ for i in range(int(RATE*duration)):
+  t=i/RATE;env=min(1,t/.002)*math.exp(-decay*t)
+  values.append(env*(.52*math.sin(2*math.pi*frequency*t)+.22*math.sin(2*math.pi*frequency*2.71*t)+.24*rng.uniform(-1,1)))
+ write(name,values)
+impact('DeskHit',77,17,.42);impact('GavelHit',230,23,.30)
+write('Press',[.20*math.sin(2*math.pi*(440*t+1100*t*t))*math.exp(-14*t) for t in (i/RATE for i in range(int(.18*RATE)))])
+write('Wrong',[.22*math.sin(2*math.pi*(300*t-220*t*t))*math.exp(-8*t) for t in (i/RATE for i in range(int(.32*RATE)))])
+for who,hz in [('Oliver',350),('Victor',280),('Bumble',135),('Benny',230),('Milo',310),('Brick',110)]:
+ write('Voice_'+who,[.22*math.sin(2*math.pi*hz*t)*(1+.3*math.sin(2*math.pi*hz*2*t))*math.sin(math.pi*t/.07)**2 for t in (i/RATE for i in range(int(.07*RATE)))])
+victory=[0.0]*int(RATE*1.5)
+for k,pitch in enumerate([60,64,67,72,76,79]):
+ hz=440*2**((pitch-69)/12)
+ for i in range(int(RATE*.45)):
+  j=int(k*.15*RATE)+i
+  if j<len(victory):victory[j]+=.18*math.sin(2*math.pi*hz*i/RATE)*math.exp(-i/RATE*8)
+write('Victory',victory)

@@ -1,7 +1,7 @@
 import unreal as u,os,json
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAST=['Oliver','Victor','Bumble','Benny','Milo','Brick']
-MOODS=['Idle','Speaking','Pointing','Angry','Nervous','Celebrate','Shock']
+MOODS=['Idle','Listening','Speaking','Thinking','Confused','Happy','Smug','Angry','Nervous','Shock','Sad','Suspicious','Frustrated','Pointing','Slam','Gavel','LeanForward','LeanBackward','Celebrate','Embarrassed']
 u.SystemLibrary.execute_console_command(None,'Interchange.FeatureFlags.Import.FBX False')
 assets=u.AssetToolsHelpers.get_asset_tools();report={}
 world=u.EditorLoadingAndSavingUtils.load_map('/Game/Courtroom/L_Courtroom')

@@ -1,133 +1,307 @@
 #include "ChaosGame.h"
 #include "Engine/Canvas.h"
+#include "UnrealClient.h"
 #include "Engine/Engine.h"
-#include "GameFramework/PlayerController.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/Texture2D.h"
 #include "Camera/CameraActor.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/AudioComponent.h"
+#include "Animation/AnimationAsset.h"
+#include "Animation/AnimSingleNodeInstance.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/GameUserSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
+#include "TimerManager.h"
+#include "Sound/SoundBase.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/CommandLine.h"
-#include "Sound/SoundBase.h"
-#include "Engine/Texture2D.h"
-#include "Components/SkeletalMeshComponent.h"
-#include "Animation/AnimationAsset.h"
-#include "Animation/AnimSingleNodeInstance.h"
-#include "TimerManager.h"
-#include "Components/AudioComponent.h"
-
+#include "HAL/FileManager.h"
+#include "HAL/PlatformMisc.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 namespace Court {
- const FLinearColor Ink(.025f,.035f,.065f), Cream(.96f,.88f,.72f), Gold(.91f,.64f,.22f), Teal(.2f,.64f,.59f), Red(.72f,.12f,.23f);
- const TCHAR* Names[]={TEXT("Security photograph"),TEXT("Mustard dispenser"),TEXT("Maintenance report"),TEXT("Inventory sheet"),TEXT("Cart transfer record"),TEXT("Storage photograph")};
- const TCHAR* Details[]={TEXT("19:10 | Benny leaves carrying a yellow object.\nINSPECT: a pointed nozzle and a red label.\nThe ceremonial gavel has neither."),TEXT("Benny's extra-large mustard dispenser.\nIts nozzle and red label match the security image.\nBenny: 'It's artisanal. The bottle is the chef.'"),TEXT("18:00 | Cleaning of the ceremonial bench.\nAll display objects must be relocated before work.\nSigned: Milo Mopps, maintenance."),TEXT("17:45 | Golden Gavel checked on ceremonial bench.\nNext check: 20:00. Marked MISSING.\nNo check was performed at 19:10."),TEXT("18:05 | Officer Brick moved ceremonial objects.\nDestination: storage B. Cart number 04.\nContents include one velvet-lined gavel case."),TEXT("20:15 | Storage B, cart 04.\nINSPECT: behind the bucket is a golden gavel\ninside an open velvet-lined case. No theft occurred.")};
- const TCHAR* Testimony[3][3]={
-  {TEXT("I saw Benny leave at 19:10 carrying the Golden Gavel."),TEXT("The security photograph proves it was a gavel."),TEXT("I remember everything. Except small details. And Tuesdays.")},
-  {TEXT("The gavel was on the bench until Benny arrived at 19:10."),TEXT("Nobody moved any ceremonial objects that evening."),TEXT("The room was being cleaned. That is entirely unrelated.")},
-  {TEXT("Even if it was moved, the gavel never reached storage."),TEXT("Cart 04 carried nothing except cleaning supplies."),TEXT("The defendant must have stolen it. My hair says so.")}};
- const TCHAR* Press[3][3]={
-  {TEXT("MILO: I saw yellow. I inferred justice. The nozzle? Decorative?") ,TEXT("VICTOR: A photograph cannot lie. OLIVER: It can be blurry."),TEXT("MILO: Please don't ask me what day it is.")},
-  {TEXT("MILO: I didn't check at 19:10. The inventory has the actual times."),TEXT("MILO: Brick handled a cart before dinner. There might be a record."),TEXT("MILO: Cleaning started at 18:00. We cleared the entire bench.")},
-  {TEXT("BRICK: I deliver objects. I do not question their ambitions."),TEXT("BRICK: Cart 04. Storage B. I wrote it down. With a pen."),TEXT("JUDGE: The court requests evidence with less hair product.")}};
- const int CorrectEvidence[]={1,2,5}; const int CorrectStatement[]={0,1,0};
- FString SaveFile(){return FPaths::ProjectSavedDir()/(FParse::Param(FCommandLine::Get(),TEXT("CourtSelfTest"))?TEXT("TrialTestSave.sav"):TEXT("Trial.sav"));}
+ const FLinearColor Ink(.025f,.035f,.065f),Cream(.96f,.88f,.72f),Gold(.91f,.64f,.22f),Teal(.015f,.17f,.15f),Red(.46f,.035f,.075f);
+ bool Testing(){return FParse::Param(FCommandLine::Get(),TEXT("CourtSelfTest"))||FParse::Param(FCommandLine::Get(),TEXT("CourtVisualTest"));}
+ FString File(const FString& Name){return FPaths::ProjectSavedDir()/(Testing()?TEXT("Test_")+Name:Name);}
+ bool Read(const FString& Path,TSharedPtr<FJsonObject>& J){FString S;if(!FFileHelper::LoadFileToString(S,*Path))return false;return FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(S),J)&&J.IsValid();}
+ bool Write(const FString& Path,const TSharedRef<FJsonObject>& J){FString S;FJsonSerializer::Serialize(J,TJsonWriterFactory<>::Create(&S));IFileManager::Get().MakeDirectory(*FPaths::GetPath(Path),true);const FString Temp=Path+TEXT(".tmp");return FFileHelper::SaveStringToFile(S,*Temp)&&IFileManager::Get().Move(*Path,*Temp,true,true);}
+ double Number(const TSharedPtr<FJsonObject>& J,const TCHAR* K,double D){double V;return J->TryGetNumberField(K,V)&&FMath::IsFinite(V)?V:D;}
+ FString String(const TSharedPtr<FJsonObject>& J,const TCHAR* K,const FString& D=FString()){FString V;return J->TryGetStringField(K,V)?V:D;}
+ bool Boolean(const TSharedPtr<FJsonObject>& J,const TCHAR* K,bool D=false){bool V;return J->TryGetBoolField(K,V)?V:D;}
+ float Ease(float T){return FMath::SmoothStep(0.f,1.f,FMath::Clamp(T,0.f,1.f));}
 }
 AChaosGameMode::AChaosGameMode(){HUDClass=AChaosHUD::StaticClass();DefaultPawnClass=nullptr;}
-void AChaosHUD::BeginPlay(){Super::BeginPlay();auto P=GetOwningPlayerController();P->bShowMouseCursor=true;P->bEnableClickEvents=true;P->bEnableMouseOverEvents=true;P->SetInputMode(FInputModeGameAndUI());CourtMusicAudio=UGameplayStatics::SpawnSound2D(this,LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/CourtroomShuffle.CourtroomShuffle")),.15f);
-if(FParse::Param(FCommandLine::Get(),TEXT("CourtSelfTest"))){
- bool OK=true; Action(TEXT("start")); OK &= Phase==0; Action(TEXT("next")); Action(TEXT("next")); OK &= Phase==2;
- Action(TEXT("press")); OK &= !Feedback.IsEmpty(); Selected=0; Action(TEXT("present")); OK &= Credibility==4 && Phase==2;
- Selected=1; Action(TEXT("present")); OK &= Phase==3; Statement=1; Selected=2; Action(TEXT("present")); OK &= Phase==4;
- Selected=5; Action(TEXT("present")); OK &= Phase==5; Save(); Phase=0; Load(); OK &= Phase==5;
- FFileHelper::SaveStringToFile(OK?TEXT("PASS: start, opening, press, incorrect evidence, three deductions, verdict, save/load"):TEXT("FAIL"),*(FPaths::ProjectSavedDir()/TEXT("TrialTest.txt")));
- UE_LOG(LogTemp,Display,TEXT("COURT_SELF_TEST: %s"),OK?TEXT("PASS"):TEXT("FAIL"));
- Phase=2; Statement=0; Credibility=5;Feedback.Empty();
- FTimerHandle FirstSample,SecondSample;
- GetWorld()->GetTimerManager().SetTimer(FirstSample,[this](){for(TActorIterator<AActor> It(GetWorld());It;++It)if(It->ActorHasTag(TEXT("Milo")))if(auto C=It->FindComponentByClass<USkeletalMeshComponent>())AnimationTestFirstPose=C->GetSocketQuaternion(TEXT("Head"));},.3f,false);
- GetWorld()->GetTimerManager().SetTimer(SecondSample,[this](){bool Moving=false;for(TActorIterator<AActor> It(GetWorld());It;++It)if(It->ActorHasTag(TEXT("Milo")))if(auto C=It->FindComponentByClass<USkeletalMeshComponent>())Moving=C->GetNumBones()>=16 && AnimationTestFirstPose.AngularDistance(C->GetSocketQuaternion(TEXT("Head")))>.001f;FFileHelper::SaveStringToFile(Moving?TEXT("PASS: skeletal head pose changes during runtime playback"):TEXT("FAIL: no skeletal head motion detected"),*(FPaths::ProjectSavedDir()/TEXT("AnimationTest.txt")));UE_LOG(LogTemp,Display,TEXT("COURT_ANIMATION_TEST: %s"),Moving?TEXT("PASS"):TEXT("FAIL"));},1.1f,false);
+AChaosHUD::AChaosHUD(){PrimaryActorTick.bCanEverTick=true;}
+int32 AChaosHUD::FinalPhase()const{return Case?Case->Stages.Num()+2:5;}
+int32 AChaosHUD::StageIndex()const{return Phase-2;}
+const FChaosStage* AChaosHUD::Stage()const{return Case&&Case->Stages.IsValidIndex(StageIndex())?&Case->Stages[StageIndex()]:nullptr;}
+bool AChaosHUD::Unlocked(int32 I)const{return Case&&Case->Evidence.IsValidIndex(I)&&Case->Evidence[I].UnlockStage<=FMath::Max(0,Phase-2);}
+void AChaosHUD::BeginPlay(){
+ Super::BeginPlay();auto P=GetOwningPlayerController();P->bShowMouseCursor=true;P->bEnableClickEvents=true;P->bEnableMouseOverEvents=true;
+ FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);P->SetInputMode(Mode);if(GetWorld()->GetGameViewport())GetWorld()->GetGameViewport()->SetMouseCaptureMode(EMouseCaptureMode::CaptureDuringMouseDown);
+ Case=LoadObject<UChaosCaseData>(nullptr,TEXT("/Game/Cases/DA_GoldenGavel.DA_GoldenGavel"));
+ if(!Case){Error=TEXT("The case data could not be loaded. Rebuild the project content.");return;}
+ if(!Case->Validate(Error))return;
+ const TArray<FName> Names={TEXT("Oliver"),TEXT("Victor"),TEXT("Bumble"),TEXT("Benny"),TEXT("Milo"),TEXT("Brick")};
+ for(TActorIterator<AActor> It(GetWorld());It;++It){for(const FName& N:Names)if(It->ActorHasTag(N)){Cast.Add(N,*It);CastRest.Add(N,It->GetActorTransform());}if(It->ActorHasTag(TEXT("AnimatedGavel")))GavelActor=::Cast<AStaticMeshActor>(*It);if(It->ActorHasTag(TEXT("EvidenceExhibit")))ExhibitActor=::Cast<AStaticMeshActor>(*It);}
+ for(TActorIterator<ACameraActor> It(GetWorld());It;++It)for(const FName& Tag:It->Tags){Cameras.Add(Tag,*It);CameraRest.Add(Tag,It->GetActorTransform());}
+ if(ExhibitActor)ExhibitActor->SetActorHiddenInGame(true);
+ LoadSettings();MusicAudio=UGameplayStatics::SpawnSound2D(this,LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/CourtroomShuffle.CourtroomShuffle")),MasterVolume*MusicVolume*.45f);
+ if(FParse::Param(FCommandLine::Get(),TEXT("CourtVisualTest")))RunVisualTests();else if(Court::Testing())RunTests();
 }
+FChaosLine AChaosHUD::CurrentLine()const{
+ FChaosLine L;if(!Case)return L;
+ if(Resolution&&Case->Stages.IsValidIndex(ResolutionStage)){const auto& A=Case->Stages[ResolutionStage].Resolution;if(A.IsValidIndex(Dialogue))return A[Dialogue];}
+ if(Phase==0&&Case->Consultation.IsValidIndex(Dialogue))return Case->Consultation[Dialogue];
+ if(Phase==1&&Case->Opening.IsValidIndex(Dialogue))return Case->Opening[Dialogue];
+ if(Phase==FinalPhase()&&!ClosingSolved){L.Speaker=TEXT("Oliver");L.Text=Case->ClosingPrompt;L.Emotion=TEXT("Thinking");return L;}
+ if(Phase==FinalPhase()&&Case->Verdict.IsValidIndex(Dialogue))return Case->Verdict[Dialogue];
+ if(const auto S=Stage())if(S->Statements.IsValidIndex(Statement)){L.Speaker=S->Speaker;L.Text=S->Statements[Statement].Text;L.Emotion=S->Statements[Statement].Emotion;}
+ return L;
 }
-void AChaosHUD::Label(const FString&S,float X,float Y,float Size,FLinearColor C){DrawText(S,C,X*SX,Y*SY,GEngine->GetMediumFont(),Size*FMath::Min(SX,SY)/16,false);}
-void AChaosHUD::Panel(float X,float Y,float W,float H,FLinearColor C){DrawRect(C,X*SX,Y*SY,W*SX,H*SY);}
-void AChaosHUD::Sprite(const FString& Name,float X,float Y,float W,float H){
- if(!Textures.Contains(Name)) Textures.Add(Name,LoadObject<UTexture2D>(nullptr,*(TEXT("/Game/UI/")+Name+TEXT(".")+Name)));
- if(auto T=Textures[Name]) DrawTexture(T,X*SX,Y*SY,W*SX,H*SY,0,0,1,1,FLinearColor::White,BLEND_Translucent);
+void AChaosHUD::Tick(float D){
+ Super::Tick(D);if(!Case||!Error.IsEmpty())return;
+ const auto Line=CurrentLine();if(Line.Text!=LastText){LastText=Line.Text;LineElapsed=0;Record(Line.Speaker+TEXT(": ")+Line.Text);}else LineElapsed+=D;
+ if(Phase>=0&&Screen!=EChaosScreen::Settings&&Screen!=EChaosScreen::Results)CaseSeconds+=D;
+ if(Screen==EChaosScreen::Play&&!InstantText&&LineElapsed*RevealSpeed<Line.Text.Len()&&GetWorld()->GetTimeSeconds()-LastBleep>.095f){LastBleep=GetWorld()->GetTimeSeconds();if(!Line.Speaker.IsEmpty())Sound(TEXT("Voice_")+Line.Speaker,.12f);}
+ if(Impact>0){float Before=Impact;Impact=FMath::Max(0.f,Impact-D);float Elapsed=3.2f-Impact;if(!ImpactFired&&(Elapsed>=.72f||ReducedMotion)){ImpactFired=true;Shake=ReducedMotion?0:.24f;PaperTime=.8f;Sound(TEXT("DeskHit"),.9f);Sound(TEXT("Objection"),.7f);}if(Before>0&&Impact==0&&VerdictPending){VerdictPending=false;StartGavel();}}
+ if(GavelTime>0){GavelTime=FMath::Max(0.f,GavelTime-D);if(!GavelFired&&2.2f-GavelTime>=.72f){GavelFired=true;Shake=ReducedMotion?0:.18f;Sound(TEXT("GavelHit"),.85f);}}
+ Shake=FMath::Max(0.f,Shake-D);PaperTime=FMath::Max(0.f,PaperTime-D);
+ if(MusicAudio)MusicAudio->SetVolumeMultiplier(MasterVolume*MusicVolume*(Impact>0?.025f:.45f));
+ UpdateProps(D);AnimateCast();SelectCamera();
 }
-void AChaosHUD::Button(FString Id,FString Caption,float X,float Y,float W){
- float MX=0,MY=0;GetOwningPlayerController()->GetMousePosition(MX,MY);
- bool Hover=MX>=X*SX&&MX<=(X+W)*SX&&MY>=Y*SY&&MY<=(Y+46)*SY;
- FString Skin=(Id==TEXT("press")||Id==TEXT("present")||Id==TEXT("start"))?TEXT("RedButton"):(Id==TEXT("evidence")?TEXT("TealButton"):TEXT("InkButton"));
- Sprite(Skin,X,Y-(Hover?3:0),W,50); Label(Caption,X+18,Y+13-(Hover?3:0),20,Court::Cream);
- AddHitBox(FVector2D(X*SX,Y*SY),FVector2D(W*SX,46*SY),FName(Id),true);
+void AChaosHUD::SetScreen(EChaosScreen V){Screen=V;FocusIndex=-1;Buttons.Empty();PreviousButtons.Empty();if(ExhibitActor)ExhibitActor->SetActorHiddenInGame(V!=EChaosScreen::Inspect);}
+void AChaosHUD::Record(const FString& S){if(S.IsEmpty()||S.EndsWith(TEXT(": ")))return;if(History.IsEmpty()||History.Last()!=S){History.Add(S);if(History.Num()>100)History.RemoveAt(0);}}
+void AChaosHUD::BeginCase(){Completed=false;Phase=0;Statement=0;Dialogue=0;Selected=0;Credibility=5;Correct=Wrong=Presses=Inspections=0;CaseSeconds=0;Resolution=false;ResolutionStage=-1;Impact=GavelTime=0;VerdictPending=false;Inspected.Empty();History.Empty();ClosingSolved=false;Feedback.Empty();LastText.Empty();SetScreen(EChaosScreen::Play);Save();}
+void AChaosHUD::Next(){
+ if(Impact>0){Action(TEXT("skip"));return;}const auto L=CurrentLine();if(!InstantText&&LineElapsed*RevealSpeed<L.Text.Len()){LineElapsed=10000;return;}
+ Record(L.Speaker+TEXT(": ")+L.Text);Feedback.Empty();
+ if(Resolution){++Dialogue;if(Case->Stages[ResolutionStage].Resolution.IsValidIndex(Dialogue))return;FinishResolution();return;}
+ if(Phase==0||Phase==1){++Dialogue;const auto& A=Phase==0?Case->Consultation:Case->Opening;if(!A.IsValidIndex(Dialogue)){++Phase;Dialogue=0;if(Phase==1)StartGavel();}Save();return;}
+ if(Phase==FinalPhase()){if(GavelTime>0){GavelTime=0;return;}++Dialogue;if(!Case->Verdict.IsValidIndex(Dialogue)){Completed=true;SetScreen(EChaosScreen::Results);Sound(TEXT("Victory"),.6f);}Save();return;}
+ if(const auto S=Stage())Statement=(Statement+1)%S->Statements.Num();Save();
 }
-void AChaosHUD::Save(){FFileHelper::SaveStringToFile(FString::Printf(TEXT("%d %d %d"),Phase,Statement,Credibility),*(Court::SaveFile()));}
-void AChaosHUD::Load(){FString S;if(FFileHelper::LoadFileToString(S,*(Court::SaveFile()))){TArray<FString>A;S.ParseIntoArrayWS(A);if(A.Num()==3){Phase=FMath::Clamp(FCString::Atoi(*A[0]),0,5);Statement=FMath::Clamp(FCString::Atoi(*A[1]),0,2);Credibility=FMath::Clamp(FCString::Atoi(*A[2]),1,5);}}}
-void AChaosHUD::DrawHUD(){
- Super::DrawHUD();SX=Canvas->SizeX/1280.f;SY=Canvas->SizeY/720.f;auto P=GetOwningPlayerController();
- if(P->WasInputKeyJustPressed(EKeys::Escape))Action(TEXT("menu"));
- if(P->WasInputKeyJustPressed(EKeys::E))Action(TEXT("evidence"));
- if(P->WasInputKeyJustPressed(EKeys::SpaceBar))Action(TEXT("next"));
- if(P->WasInputKeyJustPressed(EKeys::Left))Action(TEXT("prev"));
- if(P->WasInputKeyJustPressed(EKeys::Right))Action(TEXT("next"));
- FString Shot=TEXT("Wide");if(Phase==0)Shot=TEXT("Client");if(Phase==1||Phase==4)Shot=TEXT("Prosecutor");if(Phase==2||Phase==3)Shot=TEXT("Witness");if(Evidence)Shot=TEXT("Wide");if(Phase==5)Shot=TEXT("Judge");if(Impact>.8f)Shot=TEXT("Defense");else if(Impact>0)Shot=Phase==4?TEXT("Prosecutor"):TEXT("Witness");
- for(TActorIterator<ACameraActor>It(GetWorld());It;++It)if(It->ActorHasTag(FName(Shot))&&P->GetViewTarget()!=*It)P->SetViewTargetWithBlend(*It,.4f);
- if(CourtMusicAudio)CourtMusicAudio->SetVolumeMultiplier(Impact>0?0.f:.15f);
- AnimateCast();
- Sprite(TEXT("Logo"),25,13,320,82);
- if(Phase==-1){
-  Sprite(TEXT("Dialogue"),55,180,570,440);Label(TEXT("CASE 001"),90,215,20,Court::Red);
-  Label(TEXT("THE STOLEN\nGOLDEN GAVEL"),90,250,40,Court::Ink);
-  Label(TEXT("One missing gavel. One innocent hot dog man."),90,350,20,Court::Ink);
-  Button(TEXT("start"),TEXT("TAKE THE CASE   >"),90,405,490);Button(TEXT("load"),TEXT("CONTINUE TRIAL"),90,465,240);
-  Button(TEXT("credits"),TEXT("CONTROLS"),345,465,235);Button(TEXT("quit"),TEXT("LEAVE COURT"),90,525,240);
-  if(!Feedback.IsEmpty())Label(Feedback,70,640,18,Court::Cream);return;
- }
- Sprite(TEXT("InkButton"),435,26,410,51);Label(TEXT("001   /   THE STOLEN GOLDEN GAVEL"),460,43,18,Court::Cream);
- Sprite(TEXT("InkButton"),900,17,190,73);Label(TEXT("COURT CONFIDENCE"),915,27,14,Court::Cream);
- for(int i=0;i<5;i++){Sprite(i<Credibility?TEXT("RedButton"):TEXT("InkButton"),917+i*24,49,19,22);}
- Button(TEXT("menu"),TEXT("MENU"),1110,26,140);
- if(Evidence){
-  Sprite(TEXT("EvidencePanel"),35,125,1210,540);Label(TEXT("THE COURT RECORD"),65,151,32,Court::Ink);Label(TEXT("INSPECT THE FACTS. THEN MAKE YOUR CASE."),65,198,15,Court::Red);
-  for(int i=0;i<6;i++){Sprite(TEXT("Evidence")+FString::FromInt(i),65,246+i*61,61,48);Button(FString::FromInt(i),Court::Names[i],140,246+i*61,290);if(Selected==i)Panel(131,253+i*61,4,32,Court::Gold);}
-  Sprite(TEXT("Evidence")+FString::FromInt(Selected),770,218,340,250);
-  Label(Court::Names[Selected],478,239,27,Court::Ink);
-  Label(Court::Details[Selected],478,485,21,Court::Ink);
-  Button(TEXT("present"),TEXT("OBJECT WITH THIS!"),478,595,280);Button(TEXT("evidence"),TEXT("BACK TO TESTIMONY"),785,595,365);return;
- }
- if(Phase>=2&&Phase<=4){Sprite(TEXT("NameTab"),462,105,355,45);Label(TEXT("CROSS-EXAMINATION"),495,118,21,Court::Cream);}
- Sprite(TEXT("Dialogue"),35,495,1210,208);Sprite(TEXT("NameTab"),57,468,420,48);
- FString Name=Phase==0?TEXT("BENNY BUNS  /  YOUR CLIENT"):Phase==1?TEXT("VICTOR VAIN  /  PROSECUTOR"):Phase==5?TEXT("THE HONORABLE JUDGE BUMBLE"):Phase==4?TEXT("VICTOR VAIN  /  UNDER PRESSURE"):TEXT("MILO MOPPS  /  MAINTENANCE");
- Label(Name,79,482,20,Court::Cream);
- if(Phase==0){Label(TEXT("I delivered hot dogs. Now I'm accused of stealing the Golden Gavel.\nThe yellow thing? My mustard bottle. Please defend my good taste."),70,537,25,Court::Ink);Button(TEXT("next"),TEXT("ENTER THE COURTROOM   >"),824,637,380);}
- else if(Phase==1){Label(TEXT("A golden object. A fleeing vendor. An extremely handsome prosecutor.\nJUDGE: Only two of those are evidence."),70,537,25,Court::Ink);Button(TEXT("next"),TEXT("CROSS-EXAMINE   >"),884,637,320);}
- else if(Phase>=2&&Phase<=4){
-  int R=Phase-2;Label(FString::Printf(TEXT("STATEMENT  %02d / 03"),Statement+1),990,512,15,Court::Ink);
-  Label(Court::Testimony[R][Statement],70,536,26,Court::Ink);Label(Feedback,70,588,18,FLinearColor(.015f,.17f,.15f));
-  Button(TEXT("prev"),TEXT("<"),66,637,65);Button(TEXT("next"),TEXT(">"),141,637,65);
-  Label(TEXT("REVIEW TESTIMONY"),225,653,15,Court::Ink);Button(TEXT("press"),TEXT("PRESS   [Q]"),660,637,220);Button(TEXT("evidence"),TEXT("COURT RECORD   [E]"),900,637,305);
-  if(P->WasInputKeyJustPressed(EKeys::Q))Action(TEXT("press"));
- }else{
-  Label(TEXT("NOT GUILTY. EXTRA MUSTARD."),70,535,34,Court::Red);
-  Label(TEXT("Cart 04. Storage B. The gavel was moved, never stolen. Justice served."),70,587,23,Court::Ink);
-  Button(TEXT("start"),TEXT("REPLAY THE CASE"),70,637,280);Button(TEXT("menu"),TEXT("CASE SELECTION"),375,637,280);
- }
- if(Impact>0){Impact-=GetWorld()->GetDeltaSeconds();Sprite(TEXT("Objection"),180,210,920,220);}
+void AChaosHUD::FinishResolution(){Resolution=false;Dialogue=0;ResolutionStage=-1;if(Phase==FinalPhase()){if(ClosingSolved)StartGavel();else SetScreen(EChaosScreen::Closing);}Save();}
+void AChaosHUD::StartObjection(){Impact=ReducedMotion?.35f:3.2f;ImpactFired=false;Feedback.Empty();}
+void AChaosHUD::StartGavel(){GavelTime=ReducedMotion?.8f:2.2f;GavelFired=false;}
+void AChaosHUD::Sound(const FString& Name,float Volume){if(MasterVolume*EffectsVolume<=0)return;const FString Path=TEXT("/Game/Audio/")+Name+TEXT(".")+Name;auto Asset=LoadObject<USoundBase>(nullptr,*Path);if(Asset)UGameplayStatics::PlaySound2D(this,Asset,MasterVolume*EffectsVolume*Volume);}
+void AChaosHUD::Save(){
+ if(Phase<0)return;auto J=MakeShared<FJsonObject>();J->SetNumberField(TEXT("version"),2);J->SetStringField(TEXT("case"),Case->CaseId.ToString());J->SetNumberField(TEXT("phase"),Phase);J->SetNumberField(TEXT("statement"),Statement);J->SetNumberField(TEXT("dialogue"),Dialogue);J->SetNumberField(TEXT("credibility"),Credibility);J->SetNumberField(TEXT("selected"),Selected);J->SetNumberField(TEXT("correct"),Correct);J->SetNumberField(TEXT("wrong"),Wrong);J->SetNumberField(TEXT("presses"),Presses);J->SetNumberField(TEXT("seconds"),CaseSeconds);J->SetBoolField(TEXT("completed"),Completed);J->SetBoolField(TEXT("closing_solved"),ClosingSolved);J->SetBoolField(TEXT("resolution"),Resolution);J->SetNumberField(TEXT("resolution_stage"),ResolutionStage);
+ TArray<TSharedPtr<FJsonValue>> Lines;for(const auto& S:History)Lines.Add(MakeShared<FJsonValueString>(S));J->SetArrayField(TEXT("history"),Lines);TArray<TSharedPtr<FJsonValue>> Seen;for(const auto& N:Inspected)Seen.Add(MakeShared<FJsonValueString>(N.ToString()));J->SetArrayField(TEXT("inspected"),Seen);
+ if(!Court::Write(Court::File(TEXT("Trial.json")),J))Feedback=TEXT("The trial could not be saved. Please check available disk space.");
 }
+bool AChaosHUD::Load(){
+ TSharedPtr<FJsonObject> J;if(!Court::Read(Court::File(TEXT("Trial.json")),J)){Feedback=TEXT("No readable saved trial was found. You can start a new case.");return false;}
+ const int32 P=static_cast<int32>(Court::Number(J,TEXT("phase"),-1));if(Court::String(J,TEXT("case"))!=Case->CaseId.ToString()||Court::Number(J,TEXT("version"),0)!=2||P<0||P>FinalPhase()){Feedback=TEXT("This save does not match the current case. Start a new trial.");return false;}
+ Phase=P;Statement=0;if(const auto S=Stage())Statement=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("statement"),0)),0,S->Statements.Num()-1);Credibility=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("credibility"),5)),1,5);Selected=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("selected"),0)),0,Case->Evidence.Num()-1);Dialogue=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("dialogue"),0)),0,10);Correct=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("correct"),0)),0,Case->Stages.Num());Wrong=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("wrong"),0)),0,999);Presses=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("presses"),0)),0,999);CaseSeconds=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("seconds"),0)),0.f,86400.f);Completed=Court::Boolean(J,TEXT("completed"));ClosingSolved=Court::Boolean(J,TEXT("closing_solved"));ResolutionStage=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("resolution_stage"),-1)),-1,Case->Stages.Num()-1);Resolution=Court::Boolean(J,TEXT("resolution"))&&Case->Stages.IsValidIndex(ResolutionStage);
+ int32 Count=Resolution?Case->Stages[ResolutionStage].Resolution.Num():Phase==0?Case->Consultation.Num():Phase==1?Case->Opening.Num():Phase==FinalPhase()?Case->Verdict.Num():1;Dialogue=FMath::Clamp(Dialogue,0,FMath::Max(0,Count-1));
+ History.Empty();const TArray<TSharedPtr<FJsonValue>>* A;if(J->TryGetArrayField(TEXT("history"),A))for(const auto& V:*A){FString S;if(V->TryGetString(S)&&S.Len()<2000&&History.Num()<100)History.Add(S);}
+ Inspected.Empty();if(J->TryGetArrayField(TEXT("inspected"),A))for(const auto& V:*A){FString S;if(V->TryGetString(S))for(const auto& E:Case->Evidence)if(E.Id==FName(S))Inspected.Add(E.Id);}Inspections=Inspected.Num();Impact=0;GavelTime=0;LastText.Empty();Feedback.Empty();if(!Unlocked(Selected))Selected=0;SetScreen(Completed&&Phase==FinalPhase()?EChaosScreen::Results:Phase==FinalPhase()&&!Resolution&&!ClosingSolved?EChaosScreen::Closing:EChaosScreen::Play);if(Phase==FinalPhase()&&!Completed&&!Resolution&&ClosingSolved)StartGavel();return true;
+}
+void AChaosHUD::SaveSettings(){auto J=MakeShared<FJsonObject>();J->SetNumberField(TEXT("master"),MasterVolume);J->SetNumberField(TEXT("music"),MusicVolume);J->SetNumberField(TEXT("effects"),EffectsVolume);J->SetNumberField(TEXT("text_size"),TextScale);J->SetNumberField(TEXT("reveal"),RevealSpeed);J->SetNumberField(TEXT("quality"),Quality);J->SetBoolField(TEXT("instant"),InstantText);J->SetBoolField(TEXT("motion"),ReducedMotion);J->SetBoolField(TEXT("contrast"),HighContrast);Court::Write(Court::File(TEXT("Preferences.json")),J);}
+void AChaosHUD::LoadSettings(){TSharedPtr<FJsonObject> J;if(Court::Read(Court::File(TEXT("Preferences.json")),J)){MasterVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("master"),.8)),0.f,1.f);MusicVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("music"),.4)),0.f,1.f);EffectsVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("effects"),.8)),0.f,1.f);TextScale=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("text_size"),1)),.9f,1.3f);RevealSpeed=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("reveal"),42)),20.f,80.f);Quality=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("quality"),2)),0,3);InstantText=Court::Boolean(J,TEXT("instant"));ReducedMotion=Court::Boolean(J,TEXT("motion"));HighContrast=Court::Boolean(J,TEXT("contrast"));}if(auto Settings=GEngine->GetGameUserSettings()){Settings->SetOverallScalabilityLevel(Quality);Settings->SetFrameRateLimit(120);Settings->ApplyNonResolutionSettings();}}
 void AChaosHUD::AnimateCast(){
- const TArray<FString> Roles={TEXT("Oliver"),TEXT("Victor"),TEXT("Bumble"),TEXT("Benny"),TEXT("Milo"),TEXT("Brick")};
- FString Speaker=Phase==0?TEXT("Benny"):(Phase==1||Phase==4)?TEXT("Victor"):Phase==5?TEXT("Bumble"):TEXT("Milo");
- for(TActorIterator<AActor> It(GetWorld());It;++It){
-  auto Component=It->FindComponentByClass<USkeletalMeshComponent>();if(!Component||!It->ActorHasTag(TEXT("Performer")))continue;
-  FString CharacterName;for(const FString& R:Roles)if(It->ActorHasTag(FName(R))){CharacterName=R;break;}if(CharacterName.IsEmpty())continue;
-  FString Mood=(Phase>=0&&CharacterName==Speaker)?TEXT("Speaking"):TEXT("Idle");
-  if(Phase>=3&&CharacterName==TEXT("Victor"))Mood=TEXT("Angry");
-  if(Phase==5&&(CharacterName==TEXT("Benny")||CharacterName==TEXT("Oliver")))Mood=TEXT("Celebrate");
-  if(Phase==5&&CharacterName==TEXT("Victor"))Mood=TEXT("Nervous");
-  if(Phase>=2&&Phase<=3&&CharacterName==TEXT("Milo")&&!Feedback.IsEmpty())Mood=TEXT("Nervous");
-  if(Impact>0){if(CharacterName==TEXT("Oliver"))Mood=TEXT("Pointing");if(CharacterName==TEXT("Milo"))Mood=TEXT("Shock");if(CharacterName==TEXT("Victor"))Mood=TEXT("Angry");}
-  FString Key=TEXT("AN_")+CharacterName+TEXT("_")+Mood;
+ const auto L=CurrentLine();const bool Talking=Screen==EChaosScreen::Play&&Phase>=0&&(LineElapsed*RevealSpeed<L.Text.Len()+45||InstantText&&LineElapsed<2.5f);
+ for(auto& Pair:Cast){auto Actor=Pair.Value.Get();if(!Actor)continue;auto C=Actor->FindComponentByClass<USkeletalMeshComponent>();if(!C)continue;const FString Name=Pair.Key.ToString();FString Mood=TEXT("Listening");
+  if(Phase<0||Screen!=EChaosScreen::Play)Mood=TEXT("Idle");else if(Name==L.Speaker)Mood=Talking?L.Emotion.ToString():TEXT("Listening");
+  if(StageIndex()>=1&&Name==TEXT("Victor")&&Phase<FinalPhase())Mood=TEXT("Angry");
+  if(!Feedback.IsEmpty()&&Name==TEXT("Milo")&&Stage())Mood=TEXT("Nervous");
+  if(Screen==EChaosScreen::Results){if(Name==TEXT("Oliver")||Name==TEXT("Benny"))Mood=TEXT("Celebrate");if(Name==TEXT("Victor"))Mood=TEXT("Embarrassed");}
+  if(Impact>0){if(Name==TEXT("Oliver"))Mood=!ReducedMotion&&Impact>1.3f?TEXT("Slam"):TEXT("Pointing");if(Name==TEXT("Milo"))Mood=TEXT("Shock");if(Name==TEXT("Victor"))Mood=TEXT("Angry");}
+  if(GavelTime>0&&Name==TEXT("Bumble"))Mood=TEXT("Gavel");
+  FString Key=TEXT("AN_")+Name+TEXT("_")+Mood;
   if(!Animations.Contains(Key))Animations.Add(Key,LoadObject<UAnimationAsset>(nullptr,*(TEXT("/Game/Characters/Animations/")+Key+TEXT(".")+Key)));
-  if(auto Asset=Animations[Key]){auto Instance=Component->GetSingleNodeInstance();if(!Instance||Instance->GetCurrentAsset()!=Asset){Component->PlayAnimation(Asset,true);UE_LOG(LogTemp,Display,TEXT("CAST_PERFORMANCE %s %s"),*CharacterName,*Mood);}}
+  auto Asset=Animations[Key];if(!Asset){Key=TEXT("AN_")+Name+TEXT("_Idle");if(!Animations.Contains(Key))Animations.Add(Key,LoadObject<UAnimationAsset>(nullptr,*(TEXT("/Game/Characters/Animations/")+Key+TEXT(".")+Key)));Asset=Animations[Key];}
+  if(Asset){auto Instance=C->GetSingleNodeInstance();if(!Instance||Instance->GetCurrentAsset()!=Asset){C->PlayAnimation(Asset,Mood!=TEXT("Slam")&&Mood!=TEXT("Gavel"));UE_LOG(LogTemp,Display,TEXT("CAST_PERFORMANCE %s %s"),*Name,*Mood);}}
+ }
+}
+void AChaosHUD::UpdateProps(float D){
+ if(auto Oliver=Cast.FindRef(TEXT("Oliver")).Get())if(CastRest.Contains(TEXT("Oliver"))){auto T=CastRest[TEXT("Oliver")];float Lean=0;if(Impact>1.3f&&!ReducedMotion){float E=3.2f-Impact;Lean=E<.2f?Court::Ease(E/.2f):1.f;}Oliver->SetActorLocation(T.GetLocation()+FVector(0,-25*Lean,0));}
+ if(GavelActor){
+  if(GavelTime>0){auto Judge=Cast.FindRef(TEXT("Bumble")).Get();auto C=Judge?Judge->FindComponentByClass<USkeletalMeshComponent>():nullptr;if(C){float E=2.2f-GavelTime;float Swing=E<.52f?0:E<.72f?Court::Ease((E-.52f)/.2f):E<1.4f?1:1-Court::Ease((E-1.4f)/.5f);GavelActor->SetActorLocation(C->GetSocketLocation(TEXT("Hand_R"))+FVector(0,-15,12));GavelActor->SetActorRotation(FRotator(FMath::Lerp(90.f,180.f,Swing),0,0));}}
+  else{GavelActor->SetActorLocation(FVector(35,455,206.5));GavelActor->SetActorRotation(FRotator(0,90,90));}
+ }
+ if(Screen==EChaosScreen::Inspect&&ExhibitActor&&Case->Evidence.IsValidIndex(Selected)){
+  auto M=Case->Evidence[Selected].Exhibit;ExhibitActor->SetActorHiddenInGame(!M);if(M){ExhibitActor->GetStaticMeshComponent()->SetStaticMesh(M);float MX=0,MY=0;GetOwningPlayerController()->GetMousePosition(MX,MY);float DX=0,DY=0;GetOwningPlayerController()->GetInputMouseDelta(DX,DY);if(GetOwningPlayerController()->IsInputKeyDown(EKeys::LeftMouseButton)&&MX/SX<760&&MY/SY>150&&MY/SY<590)ExhibitYaw+=DX*.7f;ExhibitYaw+=D*8;float Scale=ExhibitZoom*(Case->Evidence[Selected].Id==TEXT("mustard")?1.17f:1.6f);auto Bounds=M->GetBounds();ExhibitActor->SetActorScale3D(FVector(Scale,-Scale,Scale));ExhibitActor->SetActorRotation(FRotator(0,ExhibitYaw,0));ExhibitActor->SetActorLocation(FVector(0,-3000,105-(Bounds.Origin.Z-Bounds.BoxExtent.Z)*Scale));}
+ }
+}
+void AChaosHUD::SelectCamera(){
+ auto ForSpeaker=[](const FString& S)->FName{if(S==TEXT("Oliver"))return TEXT("Defense");if(S==TEXT("Victor"))return TEXT("Prosecutor");if(S==TEXT("Benny"))return TEXT("Client");if(S==TEXT("Milo"))return TEXT("Witness");if(S==TEXT("Brick"))return TEXT("Bailiff");return TEXT("Judge");};
+ FName Shot=Phase>=0?ForSpeaker(CurrentLine().Speaker):FName(TEXT("Wide"));if(Screen==EChaosScreen::Record||Screen==EChaosScreen::Cases||Screen==EChaosScreen::Settings||Screen==EChaosScreen::Credits||Screen==EChaosScreen::History||Screen==EChaosScreen::Results)Shot=TEXT("Wide");if(Screen==EChaosScreen::Inspect)Shot=Case->Evidence[Selected].Exhibit?TEXT("Inspect"):TEXT("Wide");
+ if(GavelTime>0)Shot=TEXT("Judge");if(Impact>0){if(3.2f-Impact<1.7f)Shot=TEXT("Defense");else if(Case->Stages.IsValidIndex(ResolutionStage))Shot=ForSpeaker(Case->Stages[ResolutionStage].Speaker);}
+ for(auto& Pair:Cameras)if(auto Camera=Pair.Value.Get())if(CameraRest.Contains(Pair.Key))Camera->SetActorTransform(CameraRest[Pair.Key]);
+ if(auto Camera=Cameras.FindRef(Shot).Get()){auto P=GetOwningPlayerController();if(P->GetViewTarget()!=Camera)P->SetViewTargetWithBlend(Camera,ReducedMotion?0:.25f);if(Shake>0&&!ReducedMotion){auto R=Camera->GetActorRotation();R.Roll+=FMath::Sin(GetWorld()->GetTimeSeconds()*85)*Shake*3;R.Pitch+=FMath::Cos(GetWorld()->GetTimeSeconds()*65)*Shake;Camera->SetActorRotation(R);}}
+}
+void AChaosHUD::Action(FString Id){
+ if(!Case||!Error.IsEmpty()){if(Id==TEXT("quit"))GetOwningPlayerController()->ConsoleCommand(TEXT("quit"));return;}
+ if(Id!=TEXT("rotate_l")&&Id!=TEXT("rotate_r"))Sound(TEXT("UITick"),.22f);
+ if(Id==TEXT("skip")){Impact=0;ImpactFired=true;Shake=PaperTime=0;if(VerdictPending){VerdictPending=false;StartGavel();}return;}
+ if(Id==TEXT("start")){Completed=false;BeginCase();return;}
+ if(Id==TEXT("load")){Load();return;}
+ if(Id==TEXT("quit")){if(Phase>=0)Save();GetOwningPlayerController()->ConsoleCommand(TEXT("quit"));return;}
+ if(Id==TEXT("menu")){if(Phase>=0)Save();Phase=-1;Resolution=false;Impact=GavelTime=0;Feedback.Empty();SetScreen(EChaosScreen::Play);return;}
+ if(Id==TEXT("settings")){ReturnScreen=Screen;SetScreen(EChaosScreen::Settings);return;}
+ if(Id==TEXT("cases")){SetScreen(EChaosScreen::Cases);return;}
+ if(Id==TEXT("credits")){ReturnScreen=Screen;SetScreen(EChaosScreen::Credits);return;}
+ if(Id==TEXT("back")){if(Screen==EChaosScreen::Settings){SaveSettings();SetScreen(ReturnScreen);}else if(Screen==EChaosScreen::Inspect)SetScreen(EChaosScreen::Record);else if(Screen==EChaosScreen::History)SetScreen(HistoryReturn);else if(Screen==EChaosScreen::Record)SetScreen(RecordReturn);else SetScreen(EChaosScreen::Play);return;}
+ if(Id==TEXT("history")){HistoryPage=0;if(Screen==EChaosScreen::History)SetScreen(HistoryReturn);else{HistoryReturn=Screen;SetScreen(EChaosScreen::History);}return;}
+ if(Id==TEXT("history_prev")){HistoryPage=FMath::Max(0,HistoryPage-1);return;}
+ if(Id==TEXT("history_next")){HistoryPage=FMath::Min(FMath::Max(0,(History.Num()-1)/4),HistoryPage+1);return;}
+ if(Screen==EChaosScreen::Settings){
+  if(Id==TEXT("master_less"))MasterVolume=FMath::Max(0.f,MasterVolume-.1f);if(Id==TEXT("master_more"))MasterVolume=FMath::Min(1.f,MasterVolume+.1f);
+  if(Id==TEXT("music_less"))MusicVolume=FMath::Max(0.f,MusicVolume-.1f);if(Id==TEXT("music_more"))MusicVolume=FMath::Min(1.f,MusicVolume+.1f);
+  if(Id==TEXT("effects_less"))EffectsVolume=FMath::Max(0.f,EffectsVolume-.1f);if(Id==TEXT("effects_more"))EffectsVolume=FMath::Min(1.f,EffectsVolume+.1f);
+  if(Id==TEXT("text_less"))TextScale=FMath::Max(.9f,TextScale-.1f);if(Id==TEXT("text_more"))TextScale=FMath::Min(1.3f,TextScale+.1f);
+  if(Id==TEXT("speed"))RevealSpeed=RevealSpeed<40?42:RevealSpeed<60?70:24;
+  if(Id==TEXT("instant"))InstantText=!InstantText;if(Id==TEXT("motion"))ReducedMotion=!ReducedMotion;if(Id==TEXT("contrast"))HighContrast=!HighContrast;
+  if(Id==TEXT("quality")){Quality=(Quality+1)%4;if(auto S=GEngine->GetGameUserSettings()){S->SetOverallScalabilityLevel(Quality);S->ApplyNonResolutionSettings();}}
+  if(Id==TEXT("window")){if(auto S=GEngine->GetGameUserSettings()){S->SetFullscreenMode(S->GetFullscreenMode()==EWindowMode::Windowed?EWindowMode::WindowedFullscreen:EWindowMode::Windowed);S->ApplyResolutionSettings(false);S->ConfirmVideoMode();S->SaveSettings();}}
+  SaveSettings();return;
+ }
+ if(Id==TEXT("evidence")){if(Impact>0||Resolution)return;if(Screen==EChaosScreen::Record)SetScreen(RecordReturn);else if(Stage()||Screen==EChaosScreen::Closing){RecordReturn=Screen;SetScreen(EChaosScreen::Record);}return;}
+ if(Id.StartsWith(TEXT("ev_"))){int32 I=FCString::Atoi(*Id.Mid(3));if(Unlocked(I)){Selected=I;InspectionRead=false;}return;}
+ if(Id==TEXT("inspect")){if(!Unlocked(Selected))return;ExhibitYaw=0;ExhibitZoom=1;InspectionRead=Inspected.Contains(Case->Evidence[Selected].Id);SetScreen(EChaosScreen::Inspect);return;}
+ if(Id==TEXT("detail")){InspectionRead=true;Inspected.Add(Case->Evidence[Selected].Id);Inspections=Inspected.Num();Record(TEXT("INSPECTION: ")+Case->Evidence[Selected].Title+TEXT(" - ")+Case->Evidence[Selected].Inspection);Save();return;}
+ if(Id==TEXT("rotate_l")){ExhibitYaw-=30;return;}if(Id==TEXT("rotate_r")){ExhibitYaw+=30;return;}if(Id==TEXT("zoom_in")){ExhibitZoom=FMath::Min(1.4f,ExhibitZoom+.1f);return;}if(Id==TEXT("zoom_out")){ExhibitZoom=FMath::Max(.6f,ExhibitZoom-.1f);return;}
+ if(Id.StartsWith(TEXT("conclusion_"))&&Screen==EChaosScreen::Closing){int32 Choice=FCString::Atoi(*Id.Mid(11));if(Choice==Case->CorrectConclusion){ClosingSolved=true;Dialogue=0;Record(TEXT("CLOSING ARGUMENT: ")+Case->Conclusions[Choice]);Feedback.Empty();SetScreen(EChaosScreen::Play);StartGavel();Save();}else{++Wrong;Credibility=FMath::Max(1,Credibility-1);Feedback=TEXT("BUMBLE: The record supports a timeline, counsel. Avoid inventing a crime.");Sound(TEXT("Wrong"),.4f);}return;}
+ if(Id==TEXT("next")){Next();return;}
+ if(Id==TEXT("prev")){if(Stage()&&!Resolution&&Impact<=0){Statement=(Statement+Stage()->Statements.Num()-1)%Stage()->Statements.Num();Feedback.Empty();Save();}return;}
+ if(Id==TEXT("press")){if(const auto S=Stage())if(!Resolution&&Impact<=0){Feedback=S->Statements[Statement].Press;++Presses;Record(TEXT("PRESS: ")+Feedback);LineElapsed=0;Sound(TEXT("Press"),.35f);Save();}return;}
+ if(Id==TEXT("present")){const auto S=Stage();if(!S||Resolution||Impact>0||!Unlocked(Selected))return;SetScreen(EChaosScreen::Play);
+  if(S->Contradiction==Statement&&S->Evidence==Case->Evidence[Selected].Id){ResolutionStage=StageIndex();Resolution=true;Dialogue=0;++Correct;++Phase;Statement=0;StartObjection();Record(TEXT("CONTRADICTION: ")+Case->Evidence[Selected].Title);}
+  else{++Wrong;Credibility=FMath::Max(0,Credibility-1);Feedback=TEXT("BUMBLE: That evidence does not contradict this statement. Read both closely, counsel.");Sound(TEXT("Wrong"),.45f);if(Credibility==0){Credibility=5;Feedback=TEXT("BUMBLE: A short recess. Your confidence is restored. The record is still yours to examine.");}Record(Feedback);}Save();return;
  }
 }
 void AChaosHUD::NotifyHitBoxClick(FName N){Action(N.ToString());}
-void AChaosHUD::Action(FString Id){UGameplayStatics::PlaySound2D(this,LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/UITick.UITick")),.25f);if(Id==TEXT("start")){Phase=0;Statement=0;Credibility=5;Evidence=false;Feedback.Empty();}else if(Id==TEXT("load")){Load();}else if(Id==TEXT("menu")){if(Phase>=0)Save();Phase=-1;Evidence=false;}else if(Id==TEXT("quit")){GetOwningPlayerController()->ConsoleCommand(TEXT("quit"));}else if(Id==TEXT("credits")){Feedback=TEXT("Original procedural art + authored case.\nMouse: buttons | E: evidence | Q: press | Arrows: testimony");}else if(Id==TEXT("evidence")&&Phase>=2&&Phase<=4){Evidence=!Evidence;}else if(Id==TEXT("next")){if(Phase<2&&Phase>=0)Phase++;else if(Phase<=4&&Phase>=2)Statement=(Statement+1)%3;Feedback.Empty();}else if(Id==TEXT("prev")&&Phase>=2&&Phase<=4){Statement=(Statement+2)%3;Feedback.Empty();}else if(Id==TEXT("press")&&Phase>=2&&Phase<=4){Feedback=Court::Press[Phase-2][Statement];}else if(Id==TEXT("present")&&Phase>=2&&Phase<=4){int R=Phase-2;if(Selected==Court::CorrectEvidence[R]&&Statement==Court::CorrectStatement[R]){Phase++;Statement=0;Impact=1.5f;UGameplayStatics::PlaySound2D(this,LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/Objection.Objection")));Feedback=Phase==3?TEXT("The nozzle proves it was mustard. Now establish when the gavel moved."):TEXT("The timeline is broken. Follow the cart to its destination.");}else {Credibility--;Feedback=TEXT("JUDGE: That doesn't contradict this statement. Read it closely, counsel.");if(Credibility<=0){Credibility=5;Feedback=TEXT("JUDGE: A recess, counsel. Review the record. You may try again.");}}Evidence=false;Save();}else if(Id.IsNumeric()){Selected=FMath::Clamp(FCString::Atoi(*Id),0,5);}}
+void AChaosHUD::Label(const FString& S,float X,float Y,float Size,FLinearColor C){DrawText(S,C,X*SX,Y*SY,GEngine->GetMediumFont(),Size*FMath::Min(SX,SY)/16,false);}
+void AChaosHUD::Panel(float X,float Y,float W,float H,FLinearColor C){DrawRect(C,X*SX,Y*SY,W*SX,H*SY);}
+void AChaosHUD::Texture(UTexture2D* A,float X,float Y,float W,float H,float Alpha){if(A)DrawTexture(A,X*SX,Y*SY,W*SX,H*SY,0,0,1,1,FLinearColor(1,1,1,Alpha),BLEND_Translucent);}
+void AChaosHUD::Sprite(const FString& Name,float X,float Y,float W,float H,float Alpha,float Rotation){if(!Textures.Contains(Name))Textures.Add(Name,LoadObject<UTexture2D>(nullptr,*(TEXT("/Game/UI/")+Name+TEXT(".")+Name)));if(auto T=Textures[Name])DrawTexture(T,X*SX,Y*SY,W*SX,H*SY,0,0,1,1,FLinearColor(1,1,1,Alpha),BLEND_Translucent,1,false,Rotation,FVector2D(.5f,.5f));}
+FString AChaosHUD::Wrap(const FString& S,float Width,float Size){FString Out;TArray<FString> Paragraphs;S.ParseIntoArray(Paragraphs,TEXT("\n"),false);for(int32 I=0;I<Paragraphs.Num();++I){TArray<FString> Words;Paragraphs[I].ParseIntoArrayWS(Words);FString Line;for(const auto& W:Words){FString Candidate=Line.IsEmpty()?W:Line+TEXT(" ")+W;float TW=0,TH=0;GetTextSize(Candidate,TW,TH,GEngine->GetMediumFont(),Size/16);if(TW>Width&&!Line.IsEmpty()){Out+=Line+TEXT("\n");Line=W;}else Line=Candidate;}Out+=Line;if(I<Paragraphs.Num()-1)Out+=TEXT("\n");}return Out;}
+void AChaosHUD::Wrapped(const FString& S,float X,float Y,float Width,float Size,FLinearColor C,bool Reveal){FString W=Wrap(S,Width,Size);if(Reveal&&!InstantText)W=W.Left(FMath::Clamp(FMath::FloorToInt(LineElapsed*RevealSpeed),0,W.Len()));Label(W,X,Y,Size,C);}
+void AChaosHUD::Button(const FString& Id,const FString& Caption,float X,float Y,float W,bool Enabled){
+ float MX=0,MY=0;GetOwningPlayerController()->GetMousePosition(MX,MY);const bool Hover=MX>=X*SX&&MX<=(X+W)*SX&&MY>=Y*SY&&MY<=(Y+46)*SY;const bool Focus=FocusIndex==Buttons.Num();FString Skin=Id==TEXT("start")||Id==TEXT("present")||Id==TEXT("press")?TEXT("RedButton"):Id==TEXT("evidence")||Id==TEXT("inspect")||Id==TEXT("detail")?TEXT("TealButton"):TEXT("InkButton");Sprite(Skin,X,Y-(Enabled&&(Hover||Focus)?2:0),W,50,Enabled?1:.4f);Label(Caption,X+16,Y+13-(Enabled&&(Hover||Focus)?2:0),19,Enabled?Court::Cream:FLinearColor(.35f,.35f,.35f));if(Enabled){if(Focus)DrawRect(Court::Gold,(X+6)*SX,(Y+6)*SY,3*SX,32*SY);Buttons.Add(Id);AddHitBox(FVector2D(X*SX,Y*SY),FVector2D(W*SX,46*SY),FName(Id),true);}}
+void AChaosHUD::DrawHUD(){
+ Super::DrawHUD();if(!Canvas)return;SX=Canvas->SizeX/1280.f;SY=Canvas->SizeY/720.f;PreviousButtons=MoveTemp(Buttons);Buttons.Empty();auto P=GetOwningPlayerController();
+ if(P->WasInputKeyJustPressed(EKeys::Tab)&&PreviousButtons.Num()){int32 Step=P->IsInputKeyDown(EKeys::LeftShift)||P->IsInputKeyDown(EKeys::RightShift)?-1:1;FocusIndex=(FocusIndex+Step+PreviousButtons.Num())%PreviousButtons.Num();}
+ if(P->WasInputKeyJustPressed(EKeys::Enter)){if(PreviousButtons.IsValidIndex(FocusIndex))Action(PreviousButtons[FocusIndex]);else if(Screen==EChaosScreen::Play&&Phase>=0)Action(TEXT("next"));}
+ if(P->WasInputKeyJustPressed(EKeys::Escape)){if(Screen!=EChaosScreen::Play)Action(TEXT("back"));else Action(TEXT("menu"));}
+ if(P->WasInputKeyJustPressed(EKeys::SpaceBar)&&Screen==EChaosScreen::Play&&Phase>=0)Action(TEXT("next"));
+ if(P->WasInputKeyJustPressed(EKeys::H)&&Phase>=0)Action(TEXT("history"));
+ if(P->WasInputKeyJustPressed(EKeys::E)){if(Screen==EChaosScreen::Inspect)Action(TEXT("back"));else Action(TEXT("evidence"));}
+ if(Screen==EChaosScreen::Play&&Stage()&&!Resolution){if(P->WasInputKeyJustPressed(EKeys::Left))Action(TEXT("prev"));if(P->WasInputKeyJustPressed(EKeys::Right))Action(TEXT("next"));if(P->WasInputKeyJustPressed(EKeys::Q))Action(TEXT("press"));}
+ if(Screen==EChaosScreen::Record&&Case){int Step=P->WasInputKeyJustPressed(EKeys::Right)?1:P->WasInputKeyJustPressed(EKeys::Left)?-1:0;if(Step)for(int I=0;I<Case->Evidence.Num();++I){Selected=(Selected+Step+Case->Evidence.Num())%Case->Evidence.Num();if(Unlocked(Selected))break;}}
+ if(Screen==EChaosScreen::Inspect){if(P->WasInputKeyJustPressed(EKeys::A))Action(TEXT("rotate_l"));if(P->WasInputKeyJustPressed(EKeys::D))Action(TEXT("rotate_r"));if(P->WasInputKeyJustPressed(EKeys::MouseScrollUp))Action(TEXT("zoom_in"));if(P->WasInputKeyJustPressed(EKeys::MouseScrollDown))Action(TEXT("zoom_out"));}
+ if(HighContrast)Panel(0,0,1280,120,Court::Ink);
+ Sprite(TEXT("InkButton"),20,12,330,94);Sprite(TEXT("Logo"),26,15,315,81);
+ if(!Error.IsEmpty()){Sprite(TEXT("EvidencePanel"),55,180,1170,450);Label(TEXT("COURT IS IN RECESS"),90,220,34,Court::Ink);Wrapped(Error,90,300,1000,25,Court::Ink);Button(TEXT("quit"),TEXT("CLOSE GAME"),90,510,300);return;}
+ if(!Case)return;
+ if(Phase>=0){Sprite(TEXT("InkButton"),430,23,420,55);Label(TEXT("001 / ")+Case->Title.ToUpper(),451,42,17,Court::Cream);Sprite(TEXT("InkButton"),896,16,190,80);Label(TEXT("COURT CONFIDENCE"),912,30,13,Court::Cream);for(int I=0;I<5;++I)Sprite(I<Credibility?TEXT("RedButton"):TEXT("InkButton"),912+I*25,54,20,22);Button(TEXT("settings"),TEXT("OPTIONS"),1100,24,150);}
+ switch(Screen){case EChaosScreen::Play:if(Phase<0)DrawMenu();else DrawTrial();break;case EChaosScreen::Record:DrawRecord();break;case EChaosScreen::Inspect:DrawInspection();break;case EChaosScreen::Settings:DrawSettings();break;case EChaosScreen::History:DrawHistory();break;case EChaosScreen::Results:DrawResults();break;
+ case EChaosScreen::Cases:
+  Sprite(TEXT("EvidencePanel"),55,145,1170,540);Label(TEXT("CASE FILES / 001"),85,175,31,Court::Ink);Sprite(TEXT("CasePoster"),85,230,475,340);Label(Case->Title,610,245,31,Court::Ink);Wrapped(Case->Subtitle,610,305,550,24,Court::Ink);Wrapped(TEXT("Three contradictions. Six pieces of evidence. One very innocent vendor."),610,405,530,22,Court::Teal);Button(TEXT("start"),TEXT("TAKE THIS CASE"),610,525,510);Button(TEXT("back"),TEXT("BACK"),85,605,260);break;
+ case EChaosScreen::Closing:
+  Sprite(TEXT("EvidencePanel"),55,160,1170,505);Label(TEXT("YOUR CLOSING ARGUMENT"),85,195,32,Court::Ink);Wrapped(Case->ClosingPrompt,85,255,1080,25*TextScale,Court::Ink);for(int I=0;I<Case->Conclusions.Num();++I)Button(TEXT("conclusion_")+FString::FromInt(I),Case->Conclusions[I],85,350+I*70,1090);if(!Feedback.IsEmpty())Wrapped(Feedback,85,585,1090,19,Court::Red);Button(TEXT("history"),TEXT("REVIEW TRANSCRIPT"),85,610,360);Button(TEXT("evidence"),TEXT("REVIEW EVIDENCE"),475,610,360);break;
+ case EChaosScreen::Credits:
+  Sprite(TEXT("EvidencePanel"),55,145,1170,540);Label(TEXT("THE PEOPLE VS. BORING COURTROOMS"),85,175,30,Court::Ink);Wrapped(TEXT("An original legal comedy.\nOliver Objection / Victor Vain / Judge Bumble\nBenny Buns / Milo Mopps / Officer Brick\n\nOriginal characters, story, graphics and music created for Courtroom Chaos.\nPowered by Unreal Engine. Art made with Blender."),85,245,520,23,Court::Ink);Label(TEXT("YOUR COURTROOM CONTROLS"),670,240,23,Court::Red);Wrapped(TEXT("Mouse / click buttons\nSpace / reveal text, continue, skip a cinematic\nLeft + Right / review testimony\nQ / press the witness\nE / court record     H / dialogue history\nA + D / rotate an inspected object\nMouse wheel / inspection zoom\nTab + Enter / keyboard button navigation\nEscape / back, or save and return to menu"),670,285,500,20,Court::Ink);Button(TEXT("back"),TEXT("BACK"),85,605,260);break;
+ }
+ if(Impact>0){float E=3.2f-Impact;if((E>=.68f&&E<1.8f)||ReducedMotion){if(!ReducedMotion)for(int I=0;I<20;++I){float A=I*2*PI/20;float X=640+FMath::Cos(A)*720,Y=330+FMath::Sin(A)*430;DrawLine(X*SX,Y*SY,(640+FMath::Cos(A)*470)*SX,(330+FMath::Sin(A)*135)*SY,FLinearColor(.9f,.65f,.2f,.55f),2*SX);}Sprite(TEXT("Objection"),180,200,920,220);}Button(TEXT("skip"),TEXT("SKIP / SPACE"),1030,128,210);}
+ if(PaperTime>0&&!ReducedMotion){float E=.8f-PaperTime;Sprite(TEXT("Dust"),470-70*E,405-30*E,330+180*E,85+40*E,PaperTime*.5f);for(int I=0;I<5;++I){float X=530+I*45+(I-2)*130*E,Y=440-(140+I*20)*E+220*E*E;Sprite(TEXT("Paper"),X,Y,40,52,PaperTime/.8f,(I-2)*25+E*130);}}
+}
+void AChaosHUD::DrawMenu(){
+ Sprite(TEXT("Dialogue"),55,180,570,470);Label(TEXT("CASE 001"),89,215,20,Court::Red);Label(TEXT("THE STOLEN\nGOLDEN GAVEL"),89,250,39,Court::Ink);Wrapped(Case->Subtitle,89,347,490,20,Court::Ink);
+ Button(TEXT("start"),TEXT("TAKE THE CASE  >"),89,405,490);Button(TEXT("load"),TEXT("CONTINUE"),89,463,237);Button(TEXT("cases"),TEXT("CASE FILES"),341,463,238);Button(TEXT("settings"),TEXT("SETTINGS"),89,520,237);Button(TEXT("credits"),TEXT("CREDITS / CONTROLS"),341,520,238);Button(TEXT("quit"),TEXT("LEAVE COURT"),89,578,490);if(!Feedback.IsEmpty())Wrapped(Feedback,65,660,1140,18,Court::Cream);
+}
+void AChaosHUD::DrawTrial(){
+ const auto L=CurrentLine();if(Stage()&&!Resolution){Sprite(TEXT("NameTab"),450,110,380,46);Label(TEXT("CROSS-EXAMINATION"),482,123,21,Court::Cream);}
+ Sprite(TEXT("Dialogue"),35,495,1210,208);Sprite(TEXT("NameTab"),57,468,420,48);
+ FString Speaker=L.Speaker==TEXT("Oliver")?TEXT("OLIVER OBJECTION / DEFENSE"):L.Speaker==TEXT("Victor")?TEXT("VICTOR VAIN / PROSECUTION"):L.Speaker==TEXT("Benny")?TEXT("BENNY BUNS / YOUR CLIENT"):L.Speaker==TEXT("Milo")?TEXT("MILO MOPPS / MAINTENANCE"):L.Speaker==TEXT("Brick")?TEXT("OFFICER BRICK / BAILIFF"):TEXT("THE HONORABLE JUDGE BUMBLE");Label(Speaker,78,482,19,Court::Cream);
+ if(Stage()&&!Resolution)Label(FString::Printf(TEXT("STATEMENT %02d / %02d"),Statement+1,Stage()->Statements.Num()),995,512,14,Court::Ink);
+ Wrapped(L.Text,70,535,1130,25*TextScale,Court::Ink,true);
+ if(!Feedback.IsEmpty())Wrapped(Feedback,70,598,1110,18,Court::Teal);
+ if(Phase==FinalPhase()&&!Resolution&&Dialogue>=1&&LineElapsed<2)Sprite(TEXT("Verdict"),275,210,730,190,FMath::Min(1.f,2-LineElapsed));
+ if(Impact>0)return;
+ if(Stage()&&!Resolution){Button(TEXT("prev"),TEXT("<"),66,637,65);Button(TEXT("next"),TEXT(">"),141,637,65);Button(TEXT("history"),TEXT("HISTORY [H]"),225,637,185);Button(TEXT("press"),TEXT("PRESS [Q]"),660,637,215);Button(TEXT("evidence"),TEXT("RECORD [E]"),895,637,310);}
+ else{Button(TEXT("history"),TEXT("HISTORY [H]"),70,637,220);Button(TEXT("next"),GavelTime>0?TEXT("SKIP GAVEL / SPACE"):TEXT("CONTINUE / SPACE  >"),850,637,355);}
+}
+void AChaosHUD::DrawRecord(){
+ Sprite(TEXT("EvidencePanel"),35,125,1210,550);Label(TEXT("THE COURT RECORD"),65,151,31,Court::Ink);Label(TEXT("INSPECT THE FACTS. THEN MAKE YOUR CASE."),65,198,15,Court::Red);
+ for(int I=0;I<Case->Evidence.Num();++I){const auto& E=Case->Evidence[I];float Y=240+I*56;Texture(E.Illustration,65,Y,61,47,Unlocked(I)?1:.25f);Button(TEXT("ev_")+FString::FromInt(I),Unlocked(I)?E.Title:TEXT("NOT YET ENTERED"),140,Y,290,Unlocked(I));if(Selected==I)Panel(131,Y+7,4,32,Court::Gold);}
+ const auto& E=Case->Evidence[Selected];Label(E.Title,475,233,27,Court::Ink);Label(E.Category.ToUpper(),475,277,15,Court::Red);Texture(E.Illustration,790,218,340,250);Wrapped(E.Description,475,485,710,21*TextScale,Court::Ink);Button(TEXT("inspect"),TEXT("INSPECT"),475,600,210);Button(TEXT("present"),TEXT("PRESENT / OBJECT"),700,600,255,Stage()!=nullptr);Button(TEXT("back"),TEXT("BACK"),972,600,225);
+}
+void AChaosHUD::DrawInspection(){
+ const auto& E=Case->Evidence[Selected];if(!E.Exhibit){Sprite(TEXT("EvidencePanel"),35,140,735,490);Texture(E.Illustration,65,170,675,435);}else{Sprite(TEXT("InkButton"),55,130,660,60);Label(TEXT("DRAG TO ROTATE  /  MOUSE WHEEL TO ZOOM"),80,150,17,Court::Cream);Button(TEXT("rotate_l"),TEXT("<  A"),65,615,110);Button(TEXT("rotate_r"),TEXT("D  >"),187,615,110);Button(TEXT("zoom_out"),TEXT("ZOOM -"),310,615,160);Button(TEXT("zoom_in"),TEXT("ZOOM +"),485,615,170);}
+ Sprite(TEXT("EvidencePanel"),790,142,455,535);Wrapped(E.Title,820,180,385,29,Court::Ink);Label(E.Category.ToUpper(),820,260,15,Court::Red);Wrapped(InspectionRead?E.Inspection:E.Description,820,305,375,22*TextScale,Court::Ink);Button(TEXT("detail"),InspectionRead?TEXT("NOTES RECORDED"):TEXT("EXAMINE DETAILS"),820,535,380);Button(TEXT("back"),TEXT("BACK TO RECORD"),820,600,380);
+}
+void AChaosHUD::DrawSettings(){
+ Sprite(TEXT("EvidencePanel"),55,135,1170,550);Label(TEXT("MAKE YOURSELF AT HOME, COUNSEL"),85,165,29,Court::Ink);
+ const TArray<FString> AudioNames={TEXT("MASTER"),TEXT("MUSIC"),TEXT("EFFECTS + VOICES")};const TArray<FString> Keys={TEXT("master"),TEXT("music"),TEXT("effects")};const TArray<float> Values={MasterVolume,MusicVolume,EffectsVolume};
+ for(int I=0;I<3;++I){float Y=240+I*70;Label(AudioNames[I],85,Y+14,21,Court::Ink);Label(FString::Printf(TEXT("%d%%"),FMath::RoundToInt(Values[I]*100)),310,Y+14,21,Court::Teal);Button(Keys[I]+TEXT("_less"),TEXT("-"),405,Y,60);Button(Keys[I]+TEXT("_more"),TEXT("+"),480,Y,60);}
+ const TCHAR* QualityNames[]={TEXT("LOW"),TEXT("MEDIUM"),TEXT("HIGH"),TEXT("EPIC")};Button(TEXT("quality"),FString(TEXT("QUALITY: "))+QualityNames[Quality],85,470,455);Button(TEXT("window"),TEXT("WINDOWED / BORDERLESS"),85,535,455);
+ Label(FString::Printf(TEXT("TEXT SIZE: %d%%"),FMath::RoundToInt(TextScale*100)),660,254,21,Court::Ink);Button(TEXT("text_less"),TEXT("-"),1040,240,60);Button(TEXT("text_more"),TEXT("+"),1115,240,60);
+ Button(TEXT("speed"),FString::Printf(TEXT("TEXT SPEED: %s"),RevealSpeed<40?TEXT("RELAXED"):RevealSpeed<60?TEXT("NORMAL"):TEXT("QUICK")),660,310,515);
+ Button(TEXT("instant"),InstantText?TEXT("INSTANT TEXT: ON"):TEXT("INSTANT TEXT: OFF"),660,380,515);Button(TEXT("motion"),ReducedMotion?TEXT("REDUCED MOTION: ON"):TEXT("REDUCED MOTION: OFF"),660,450,515);Button(TEXT("contrast"),HighContrast?TEXT("HIGH CONTRAST: ON"):TEXT("HIGH CONTRAST: OFF"),660,520,515);Button(TEXT("back"),TEXT("SAVE SETTINGS + BACK"),660,600,515);Label(TEXT("Preferences are saved automatically."),85,620,18,Court::Teal);
+}
+void AChaosHUD::DrawHistory(){
+ Sprite(TEXT("EvidencePanel"),55,140,1170,545);Label(TEXT("THE TRIAL TRANSCRIPT"),85,170,31,Court::Ink);Label(TEXT("LATEST ENTRIES FIRST"),85,215,14,Court::Red);
+ if(History.IsEmpty())Label(TEXT("Your transcript begins when the case starts."),85,285,23,Court::Ink);
+ for(int I=0;I<4;++I){int N=History.Num()-1-HistoryPage*4-I;if(History.IsValidIndex(N)){Panel(85,255+I*82,4,57,Court::Gold);Wrapped(History[N],105,255+I*82,1070,21*TextScale,Court::Ink);}}
+ Button(TEXT("history_prev"),TEXT("< NEWER"),85,610,230,HistoryPage>0);Button(TEXT("history_next"),TEXT("OLDER >"),335,610,230,(HistoryPage+1)*4<History.Num());Button(TEXT("back"),TEXT("BACK TO TRIAL"),855,610,330);
+}
+void AChaosHUD::DrawResults(){
+ Sprite(TEXT("EvidencePanel"),55,145,1170,540);Sprite(TEXT("Verdict"),360,155,560,145);Label(Wrong==0?TEXT("FLAWLESS DEFENSE"):Wrong<3?TEXT("CERTIFIED OBJECTOR"):TEXT("JUSTICE SERVED. EVENTUALLY."),320,315,32,Court::Ink);
+ Wrapped(TEXT("Benny's bottle was mustard. The gavel was relocated during cleaning.\nThe court has cleared his name, his apron, and most of his invoice."),180,365,950,23,Court::Ink);
+ Label(FString::Printf(TEXT("%d DEDUCTIONS     %d MISTAKES     %d PRESSES     %d CLUES INSPECTED"),Correct,Wrong,Presses,Inspections),180,437,19,Court::Teal);
+ const TArray<bool> Earned={Correct>0,Inspections>0,Wrong==0,Presses>=3};const TArray<FString> Badges={TEXT("FIRST OBJECTION"),TEXT("SHARP EYE"),TEXT("STEADY NERVES"),TEXT("COURTROOM MENACE")};for(int I=0;I<4;++I){Sprite(TEXT("Badge")+FString::FromInt(I),180+I*250,478,48,48,Earned[I]?1:.25f);Label(Badges[I],235+I*250,492,14,Earned[I]?Court::Ink:FLinearColor(.4f,.4f,.4f));}
+ Button(TEXT("start"),TEXT("PLAY AGAIN"),180,590,290);Button(TEXT("cases"),TEXT("CASE FILES"),490,590,290);Button(TEXT("menu"),TEXT("MAIN MENU"),800,590,290);
+}
+void AChaosHUD::RunTests(){
+ bool OK=Case->Validate(Error);const bool OldInstant=InstantText;InstantText=true;BeginCase();int Guard=0;while(Phase<2&&++Guard<30)Next();OK&=Phase==2&&!Unlocked(Case->Evidence.Num()-1);
+ Action(TEXT("press"));OK&=Presses==1&&!Feedback.IsEmpty();Selected=0;Statement=Stage()->Contradiction;while(Case->Evidence[Selected].Id==Stage()->Evidence)++Selected;Action(TEXT("present"));OK&=Wrong==1&&Credibility==4&&Phase==2;
+ for(int I=0;I<Case->Stages.Num();++I){const auto S=Stage();if(!S){OK=false;break;}Statement=S->Contradiction;for(int E=0;E<Case->Evidence.Num();++E)if(Case->Evidence[E].Id==S->Evidence)Selected=E;Action(TEXT("present"));OK&=Correct==I+1;Action(TEXT("skip"));Guard=0;while(Resolution&&++Guard<20)Next();}
+ Action(TEXT("conclusion_")+FString::FromInt(Case->CorrectConclusion));OK&=ClosingSolved;OK&=Phase==FinalPhase();GavelTime=0;Guard=0;while(Screen!=EChaosScreen::Results&&++Guard<20)Next();OK&=Completed&&Screen==EChaosScreen::Results;Save();Phase=0;OK&=Load()&&Phase==FinalPhase();FString Backup;FFileHelper::LoadFileToString(Backup,*Court::File(TEXT("Trial.json")));FFileHelper::SaveStringToFile(TEXT("invalid"),*Court::File(TEXT("Trial.json")));OK&=!Load();FFileHelper::SaveStringToFile(Backup,*Court::File(TEXT("Trial.json")));Load();
+ FFileHelper::SaveStringToFile(OK?TEXT("PASS: case validation, dialogue, locked evidence, pressing, wrong evidence, three deductions, resolution dialogue, verdict, atomic save/load and invalid-save recovery"):TEXT("FAIL"),*(FPaths::ProjectSavedDir()/TEXT("TrialTest.txt")));UE_LOG(LogTemp,Display,TEXT("COURT_SELF_TEST: %s"),OK?TEXT("PASS"):TEXT("FAIL"));
+ BeginCase();InstantText=OldInstant;Phase=2;Statement=0;Dialogue=0;Resolution=false;Feedback.Empty();LastText.Empty();Screen=EChaosScreen::Play;ReducedMotion=false;StartObjection();StartGavel();
+ FTimerHandle First,Second,Contact;
+ GetWorld()->GetTimerManager().SetTimer(First,[this](){if(auto A=Cast.FindRef(TEXT("Milo")).Get())if(auto C=A->FindComponentByClass<USkeletalMeshComponent>())TestHead=C->GetSocketQuaternion(TEXT("Head"));},.3f,false);
+ GetWorld()->GetTimerManager().SetTimer(Second,[this](){bool Moving=false;if(auto A=Cast.FindRef(TEXT("Milo")).Get())if(auto C=A->FindComponentByClass<USkeletalMeshComponent>())Moving=C->GetNumBones()>=17&&TestHead.AngularDistance(C->GetSocketQuaternion(TEXT("Head")))>.001f;FFileHelper::SaveStringToFile(Moving?TEXT("PASS: skeletal head pose changes during runtime playback"):TEXT("FAIL: no skeletal motion"),*(FPaths::ProjectSavedDir()/TEXT("AnimationTest.txt")));UE_LOG(LogTemp,Display,TEXT("COURT_ANIMATION_TEST: %s"),Moving?TEXT("PASS"):TEXT("FAIL"));},1.1f,false);
+ GetWorld()->GetTimerManager().SetTimer(Contact,[this](){bool Hands=false,Gavel=false;FVector H=FVector::ZeroVector;if(auto A=Cast.FindRef(TEXT("Oliver")).Get())if(auto C=A->FindComponentByClass<USkeletalMeshComponent>()){H=C->GetSocketLocation(TEXT("Hand_R"));Hands=H.Z>123&&H.Z<140&&H.X>-400&&H.X<-200&&H.Y>-50&&H.Y<30;}FVector O=FVector::ZeroVector,E=FVector::ZeroVector;if(GavelActor){GavelActor->GetActorBounds(false,O,E);Gavel=O.Z-E.Z>192&&O.Z-E.Z<201;}FString R=FString::Printf(TEXT("%s: desk hand=(%.1f,%.1f,%.1f); gavel bottom=%.1f; block top=195.5"),Hands&&Gavel?TEXT("PASS"):TEXT("FAIL"),H.X,H.Y,H.Z,O.Z-E.Z);FFileHelper::SaveStringToFile(R,*(FPaths::ProjectSavedDir()/TEXT("ChoreographyTest.txt")));UE_LOG(LogTemp,Display,TEXT("COURT_CHOREOGRAPHY_TEST: %s"),*R);},1.05f,false);
+}
+
+// Deterministic rendering review. Separate test saves; never runs during ordinary play.
+void AChaosHUD::RunVisualTests(){
+ InstantText=true;TextScale=1.3f;ReducedMotion=false;
+ IFileManager::Get().MakeDirectory(*(FPaths::ProjectSavedDir()/TEXT("VisualQA")),true);
+ auto Step=MakeShared<int32>(0);auto Timer=MakeShared<FTimerHandle>();
+ GetWorld()->GetTimerManager().SetTimer(*Timer,[this,Step,Timer](){
+  const int32 View=(*Step)/2;
+  const TArray<FString> Names={TEXT("Settings"),TEXT("Witness"),TEXT("Record"),TEXT("Mustard3D"),TEXT("Document"),TEXT("Transcript"),TEXT("Closing"),TEXT("Gavel"),TEXT("Results"),TEXT("DeskSlam"),TEXT("GoldenGavel3D"),TEXT("Credits"),TEXT("Cases")};
+  if(View>=Names.Num()){FPlatformMisc::RequestExit(false);return;}
+  if((*Step)%2){FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("VisualQA")/(Names[View]+TEXT(".png")),false,false);}
+  else{
+   Impact=GavelTime=0;Resolution=false;Feedback.Empty();
+   switch(View){
+    case 0:Phase=-1;SetScreen(EChaosScreen::Settings);break;
+    case 1:BeginCase();Phase=2;SetScreen(EChaosScreen::Play);break;
+    case 2:Selected=1;SetScreen(EChaosScreen::Record);break;
+    case 3:Selected=1;InspectionRead=true;ExhibitZoom=1;SetScreen(EChaosScreen::Inspect);break;
+    case 4:Selected=2;InspectionRead=true;SetScreen(EChaosScreen::Inspect);break;
+    case 5:Record(TEXT("INSPECTION: The nozzle and red M match the security photograph."));Record(TEXT("PRESS: Milo did not check the bench at 19:10. The inventory lists the check times."));SetScreen(EChaosScreen::History);break;
+    case 6:Phase=FinalPhase();ClosingSolved=false;Correct=3;SetScreen(EChaosScreen::Closing);break;
+    case 7:ClosingSolved=true;Dialogue=1;SetScreen(EChaosScreen::Play);StartGavel();break;
+    case 8:Completed=true;Correct=3;Presses=3;Inspections=2;SetScreen(EChaosScreen::Results);break;
+    case 9:Phase=3;Resolution=true;ResolutionStage=0;Dialogue=0;SetScreen(EChaosScreen::Play);StartObjection();break;
+    case 10:Phase=4;Resolution=false;Selected=5;InspectionRead=true;ExhibitZoom=1;SetScreen(EChaosScreen::Inspect);break;
+    case 11:Phase=-1;SetScreen(EChaosScreen::Credits);break;
+    case 12:SetScreen(EChaosScreen::Cases);break;
+   }
+  }
+  ++(*Step);
+ },.8f,true);
+}
