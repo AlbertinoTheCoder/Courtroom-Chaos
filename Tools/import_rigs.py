@@ -7,14 +7,19 @@ assets=u.AssetToolsHelpers.get_asset_tools();report={}
 world=u.EditorLoadingAndSavingUtils.load_map('/Game/Courtroom/L_Courtroom')
 actors=u.get_editor_subsystem(u.EditorActorSubsystem)
 for name in CAST:
+ existing=u.load_asset('/Game/Characters/Rigged/SK_'+name)
+ if existing:existing.get_editor_property('asset_import_data').set_editor_property('import_morph_targets',True)
  task=u.AssetImportTask();task.filename=os.path.join(ROOT,'Art','Exports','SK_'+name+'.fbx');task.destination_path='/Game/Characters/Rigged';task.destination_name='SK_'+name;task.automated=True;task.replace_existing=True;task.save=True
- o=u.FbxImportUI();o.automated_import_should_detect_type=False;o.mesh_type_to_import=u.FBXImportType.FBXIT_SKELETAL_MESH;o.import_mesh=True;o.import_as_skeletal=True;o.import_materials=False;o.import_textures=False;o.import_animations=False;o.create_physics_asset=False;task.options=o
+ o=u.FbxImportUI();o.automated_import_should_detect_type=False;o.mesh_type_to_import=u.FBXImportType.FBXIT_SKELETAL_MESH;o.import_mesh=True;o.import_as_skeletal=True;o.import_materials=False;o.import_textures=False;o.import_animations=False;o.create_physics_asset=False;o.skeletal_mesh_import_data.set_editor_property('import_morph_targets',True);task.options=o
  assets.import_asset_tasks([task]);mesh=u.load_asset('/Game/Characters/Rigged/SK_'+name)
  assert isinstance(mesh,u.SkeletalMesh),'Skeletal mesh import failed: '+name
+ targets=[m.get_name() for m in mesh.get_editor_property('morph_targets')]
+ assert 'TalkOpen' in targets and 'SmileHide' in targets,(name,targets)
  for i,slot in enumerate(mesh.materials):
   material=u.load_asset('/Game/Characters/'+str(slot.material_slot_name))
   if material:
    u.MaterialEditingLibrary.set_material_usage(material,u.MaterialUsage.MATUSAGE_SKELETAL_MESH)
+   u.MaterialEditingLibrary.set_material_usage(material,u.MaterialUsage.MATUSAGE_MORPH_TARGETS)
    slots=mesh.materials;slots[i].material_interface=material;mesh.materials=slots
  skeleton=mesh.skeleton;assert skeleton,'Skeleton missing'
  imported=[]
@@ -36,4 +41,3 @@ if not any(a.get_actor_label()=='Defense' for a in actors.get_all_level_actors()
  camera=actors.spawn_actor_from_class(u.CameraActor,u.Vector(-300,-320,285));camera.set_actor_label('Defense');camera.tags=['Defense'];camera.set_actor_rotation(u.MathLibrary.find_look_at_rotation(u.Vector(-300,-320,285),u.Vector(-300,75,170)),False);camera.camera_component.field_of_view=60
 assert u.EditorLoadingAndSavingUtils.save_map(world,'/Game/Courtroom/L_Courtroom')
 u.EditorAssetLibrary.save_directory('/Game');open(os.path.join(ROOT,'Saved','RigImport.json'),'w').write(json.dumps(report,indent=2));u.log('RIG_IMPORT_OK '+str(report))
-

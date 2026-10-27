@@ -53,7 +53,6 @@ def make(name,color,w,headwidth,role):
  for i,p in enumerate(spline.points):
   x=-.105+i*.21/24;z=1.82+.045*(x/.105)**2;p.co=(x,-.278-.025*(1-(x/.15)**2),z,1)
  mouth=bpy.data.objects.new('Smile',curve);scene.collection.objects.link(mouth);curve.materials.append(mats['hair']);bpy.context.view_layer.objects.active=mouth;mouth.select_set(True);bpy.ops.object.convert(target='MESH');mouth.select_set(False)
- ball('Lower lip',(0,-.283,1.79),(.075,.023,.022),'skin')
  if name=='Bumble':
   for s in [-1,1]:ball('Mustache',(s*.1,-.32,1.91),(.14,.05,.055),'white')
  else:
@@ -66,7 +65,24 @@ def make(name,color,w,headwidth,role):
   ball('Cap badge',(0,-.29,2.48),(.07,.025,.055),'gold')
  if role=='witness':
   box('Work pocket',(.23,-.27,1.25),(.2,.055,.22),'teal',.025);rod('Pocket pencil',(.23,-.31,1.21),(.23,-.31,1.46),.018,'gold')
- if role=='vendor':patch('Apron',[(-.31,-.3,1.3),(.31,-.3,1.3),(.37,-.27,.69),(-.37,-.27,.69)],'cream')
+ if role=='vendor':
+  # A continuous curved apron sits outside the jacket, lapels and tie.
+  verts=[];faces=[];columns=9;rows=7
+  for j in range(rows):
+   t=j/(rows-1);half=.34*(1-t)+.26*t
+   for i in range(columns):
+    x=-half+2*half*i/(columns-1);y=-.41+.04*(x/.34)**2+.06*(1-t)
+    verts.append((x,y,.69+.65*t))
+  for j in range(rows-1):
+   for i in range(columns-1):
+    a=j*columns+i;faces.append((a,a+columns,a+columns+1,a+1))
+  me=bpy.data.meshes.new('Apron cloth');me.from_pydata(verts,[],faces);me.update();apron=bpy.data.objects.new('Apron',me);scene.collection.objects.link(apron);me.materials.append(mats['cream'])
+  for f in me.polygons:f.use_smooth=True
+  sub=apron.modifiers.new('Soft cloth contour','SUBSURF');sub.levels=2
+  sol=apron.modifiers.new('Fabric thickness','SOLIDIFY');sol.thickness=.012;sol.offset=0
+  for side in [-1,1]:patch('Apron neck strap',[(side*.11,-.35,1.56),(side*.16,-.35,1.56),(side*.235,-.415,1.31),(side*.19,-.415,1.31)],'cream')
+  box('Apron pocket',(0,-.435,1.035),(.25,.022,.17),'cream',.012)
+  rod('Apron pocket stitch',(-.105,-.452,1.11),(.105,-.452,1.11),.006,'red')
  objects=list(set(scene.objects)-before);export(name,objects)
  placements={'Oliver':(-3,.75,0),'Victor':(3,.75,0),'Bumble':(0,5.35,.48),'Benny':(-5.2,1.5,0),'Milo':(5,4.2,0),'Brick':(7.2,-1.2,0)}
  for o in objects:o.location+=Vector(placements[name]);o.hide_set(True)

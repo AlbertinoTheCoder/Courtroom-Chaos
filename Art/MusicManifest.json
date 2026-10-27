@@ -1,0 +1,23 @@
+{
+  "CourtroomTension": {
+    "samples": 677376,
+    "sample_rate": 44100,
+    "duration": 15.36,
+    "peak": 0.39752685762758705,
+    "bpm": 125
+  },
+  "CourtroomChaos": {
+    "samples": 677376,
+    "sample_rate": 44100,
+    "duration": 15.36,
+    "peak": 0.5285579849209486,
+    "bpm": 125
+  },
+  "CourtroomMayhem": {
+    "samples": 677376,
+    "sample_rate": 44100,
+    "duration": 15.36,
+    "peak": 0.552037354413327,
+    "bpm": 125
+  }
+}

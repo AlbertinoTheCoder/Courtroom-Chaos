@@ -11,14 +11,14 @@ if ($Packaged) {
   $reportRoot = Join-Path $testUser 'Saved'
   $testArgs = @("-UserDir=$testUser/")
 }
-$reports = @('TrialTest.txt','AnimationTest.txt','ChoreographyTest.txt') | ForEach-Object { Join-Path $reportRoot $_ }
+$reports = @('TrialTest.txt','AnimationTest.txt','ChoreographyTest.txt','AudioTest.txt') | ForEach-Object { Join-Path $reportRoot $_ }
 foreach ($path in $reports) { if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path } }
 $testArgs += @('-game','-RenderOffscreen','-ResX=1280','-ResY=720','-CourtSelfTest','-unattended','-nosplash',"-abslog=$projectRoot\Saved\$(if ($Packaged) {'PackagedTest'} else {'TestRun'}).log")
 $testProcess = Start-Process -FilePath $executable -ArgumentList $testArgs -PassThru -WindowStyle Hidden
 $deadline = (Get-Date).AddMinutes(10)
 try {
   while (@($reports | Where-Object { !(Test-Path -LiteralPath $_) }).Count -gt 0) {
-    if ($testProcess.HasExited) { throw 'Test runtime exited before producing all three reports.' }
+    if ($testProcess.HasExited) { throw 'Test runtime exited before producing all required reports.' }
     if ((Get-Date) -gt $deadline) { throw 'Test runtime timed out.' }
     Start-Sleep -Milliseconds 250
   }

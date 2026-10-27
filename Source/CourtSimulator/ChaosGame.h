@@ -3,6 +3,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/HUD.h"
 #include "ChaosCaseData.h"
+#include "ChaosAudioData.h"
 #include "ChaosGame.generated.h"
 class UTexture2D;
 class UFont;
@@ -28,6 +29,16 @@ private:
  UPROPERTY(Transient) TMap<FString,TObjectPtr<UTexture2D>> Textures;
  UPROPERTY(Transient) TMap<FString,TObjectPtr<UAnimationAsset>> Animations;
  UPROPERTY(Transient) TObjectPtr<UAudioComponent> MusicAudio;
+ UPROPERTY(Transient) TObjectPtr<UChaosAudioData> CourtAudio;
+ UPROPERTY(Transient) TArray<TObjectPtr<UAudioComponent>> MusicStems;
+ UPROPERTY(Transient) TObjectPtr<UAudioComponent> SpeechAudio;
+ const FChaosSpeechSequence* SpeechSequence=nullptr;
+ FString SpeechKey,SpeechSpeaker;
+ int32 SpeechTake=0;
+ float SpeechClock=0,MouthAmount=0,CourtHeat=0,ChaosPulse=0,MusicDuck=1,VoiceVolume=.9f;
+ bool SpeechPaused=false,SpeechTakeStarted=false;
+ float TestMouthMin=1,TestMouthMax=0,TestQuietLayer=0,TestPausedClock=0;
+ bool TestAudioOK=true;
  UPROPERTY(Transient) TObjectPtr<AStaticMeshActor> GavelActor;
  UPROPERTY(Transient) TObjectPtr<AStaticMeshActor> ExhibitActor;
  TMap<FName,TWeakObjectPtr<AActor>> Cast;
@@ -65,6 +76,12 @@ private:
  void SaveSettings();
  void LoadSettings();
  void RunTests();
+ void StopSpeech();
+ void StartSpeechTake();
+ void UpdateSpeech(float DeltaSeconds);
+ void UpdateMusic(float DeltaSeconds);
+ void RunAudioTests();
+ bool ValidateAudio() const;
  void RunVisualTests();
  void Sound(const FString& Name,float Volume=1);
  void Label(const FString& Text,float X,float Y,float Size,FLinearColor Color);

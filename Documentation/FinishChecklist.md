@@ -35,3 +35,10 @@ Scope remains one completed Golden Gavel case with procedural cartoon art and ri
 
 - Cooked-package render review also produced all 13 views and matched the editor artwork/materials. A timer-delegate lifetime bug in the capture tool's own exit path was corrected by requesting shutdown without deleting the executing delegate. This path runs only with `-CourtVisualTest`.
 - Standard shadow maps are selected for the SM5 renderer, removing the editor warning about unsupported virtual shadow maps.
+
+
+## Speech, adaptive music and clothing - 27 October 2026
+
+Six distinct Kokoro voices, 49 baked clips (230.6 seconds), and amplitude envelopes replace dialogue bleeps. Four synchronized 125 BPM stems respond to court temper and duck for dialogue. Speech pauses in overlays, switches cleanly between speakers, and has an independent volume control. Removed the floating lower-lip strip, added small TalkOpen/SmileHide morphs, and saved MorphTargets material usage for packaging. Benny has a continuous apron with straps and a pocket outside the jacket/tie. Animation preloading removes first-use performance stalls.
+
+Editor and packaged TrialTest, AnimationTest, ChoreographyTest and AudioTest all PASS. Audio coverage, six voices, morph presence, pause/resume/replacement, music playback and intensity response were exercised in the running game. Fifteen renders reviewed, including Benny apron and new voice settings. Final Windows BuildCookRun succeeded in Saved/PerformancePackaging.log; packaged reports are under Saved/PackagedVerification/Saved. Original player saves were not changed by QA.

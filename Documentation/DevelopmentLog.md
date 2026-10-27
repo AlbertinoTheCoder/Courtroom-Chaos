@@ -57,3 +57,10 @@ Replaced scaled Engine Medium bitmap glyphs with a transient runtime UFont backe
 ## Visible courtroom notice — 27 October 2026
 
 Replaced the small wall sentence centered behind a pillar with a 2.48m framed enamel notice between the columns. The notice uses raised Georgia Bold and Segoe Semibold mesh lettering, a brass frame, burgundy rule heading and high-contrast cream/gold copy. Enlarged the complete warning, including PLEASE DO NOT. Editable text objects remain in CourtroomFinal.blend; export meshes preserve the existing Unreal front-face conversion. Tools/polish_notice.py is idempotent and is part of full art regeneration; Tools/import_notice.py performs a targeted room-mesh update. Added the main menu as the fourteenth automatic visual-review view so the sign can be checked from the player's camera.
+
+
+## Speech, adaptive music and clothing - 27 October 2026
+
+Six distinct Kokoro voices, 49 baked clips (230.6 seconds), and amplitude envelopes replace dialogue bleeps. Four synchronized 125 BPM stems respond to court temper and duck for dialogue. Speech pauses in overlays, switches cleanly between speakers, and has an independent volume control. Removed the floating lower-lip strip, added small TalkOpen/SmileHide morphs, and saved MorphTargets material usage for packaging. Benny has a continuous apron with straps and a pocket outside the jacket/tie. Animation preloading removes first-use performance stalls.
+
+Editor and packaged TrialTest, AnimationTest, ChoreographyTest and AudioTest all PASS. Audio coverage, six voices, morph presence, pause/resume/replacement, music playback and intensity response were exercised in the running game. Fifteen renders reviewed, including Benny apron and new voice settings. Final Windows BuildCookRun succeeded in Saved/PerformancePackaging.log; packaged reports are under Saved/PackagedVerification/Saved. Original player saves were not changed by QA.

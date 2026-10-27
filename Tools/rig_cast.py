@@ -23,7 +23,7 @@ for name,w in widths.items():
  objects=[o for o in collection.objects if o.type=='MESH']
  base=next(o.location.copy() for o in objects if o.name.startswith('Tailored silhouette'))
  bpy.ops.mesh.primitive_uv_sphere_add(segments=20,ring_count=12,location=base+Vector((0,-.32,1.84)))
- mouth_open=bpy.context.object;mouth_open.name='Open mouth '+name;mouth_open.scale=(.065,.015,.09);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);mouth_open.data.materials.append(bpy.data.materials['hair'])
+ mouth_open=bpy.context.object;mouth_open.name='Open mouth '+name;mouth_open.scale=(.055,.015,.027);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);mouth_open.data.materials.append(bpy.data.materials['hair'])
  for f in mouth_open.data.polygons:f.use_smooth=True
  objects.append(mouth_open)
  bpy.ops.object.select_all(action='DESELECT')
@@ -38,7 +38,7 @@ for name,w in widths.items():
   if label.startswith('Open mouth'):bone='OpenMouth'
   elif any(label.startswith(s) for s in ['Eye white','Iris','Pupil','Catchlight']):bone='Eye_'+side
   elif label.startswith('Expressive brow'):bone='Brow_'+side
-  elif label.startswith('Smile') or label.startswith('Lower lip'):bone='Mouth'
+  elif label.startswith('Smile'):bone='Mouth'
   elif center.z>1.64:bone='Head'
   elif any(label.startswith(s) for s in ['Upper sleeve']):bone='Arm_'+side
   elif any(label.startswith(s) for s in ['Forearm','Shirt cuff']):bone='Forearm_'+side
@@ -71,6 +71,19 @@ for name,w in widths.items():
  bpy.ops.object.select_all(action='DESELECT')
  for o in objects:o.select_set(True)
  bpy.context.view_layer.objects.active=objects[0];bpy.ops.object.join();mesh=bpy.context.object;mesh.name='SK_'+name
+ # Speech deforms the actual mouth. No separate skin-coloured lower-lip strip.
+ bpy.ops.object.transform_apply(location=True,rotation=True,scale=True)
+ open_group=mesh.vertex_groups['OpenMouth'].index;smile_group=mesh.vertex_groups['Mouth'].index
+ open_indices=[v.index for v in mesh.data.vertices if any(g.group==open_group for g in v.groups)]
+ smile_indices=[v.index for v in mesh.data.vertices if any(g.group==smile_group for g in v.groups)]
+ open_positions={i:mesh.data.vertices[i].co.copy() for i in open_indices};center=Vector((0,-.32,1.84))
+ basis=mesh.shape_key_add(name='Basis')
+ for i in open_indices:
+  rest=center+(open_positions[i]-center)*.001;basis.data[i].co=rest;mesh.data.vertices[i].co=rest
+ talk=mesh.shape_key_add(name='TalkOpen')
+ for i in open_indices:talk.data[i].co=open_positions[i]
+ hide=mesh.shape_key_add(name='SmileHide')
+ for i in smile_indices:hide.data[i].co=Vector((0,-.30,1.84))
  # Joining preserves deform groups; keep one armature modifier.
  for mod in list(mesh.modifiers):
   if mod.type=='ARMATURE':mesh.modifiers.remove(mod)
@@ -81,17 +94,17 @@ for name,w in widths.items():
   for frame in range(1,50,2):
    t=(frame-1)/48;wave=math.sin(t*2*math.pi);pulse=math.sin(t*8*math.pi)
    for p in rig.pose.bones:p.rotation_mode='XYZ';p.rotation_euler=(0,0,0);p.scale=(1,1,1);p.location=(0,0,0)
-   rig.pose.bones['OpenMouth'].scale=(.001,.001,.001)
+   rig.pose.bones['OpenMouth'].scale=(1,1,1)
    rig.pose.bones['Spine'].rotation_euler[0]=.018*wave
    rig.pose.bones['Head'].rotation_euler[2]=.025*wave
    blink=.08 if frame in [35,37] else 1
    for side in ['L','R']:rig.pose.bones['Eye_'+side].scale.y=blink
    if mood in ['Speaking','Angry','Nervous']:
-    rig.pose.bones['Mouth'].scale.y=1+.45*pulse;rig.pose.bones['Head'].rotation_euler[0]=.035*pulse
+    rig.pose.bones['Head'].rotation_euler[0]=.035*pulse
    if mood=='Pointing':
     rig.pose.bones['Arm_R'].rotation_euler[0]=-1.4;rig.pose.bones['Forearm_R'].rotation_euler[0]=-.15;rig.pose.bones['Spine'].rotation_euler[0]=-.07;rig.pose.bones['Brow_R'].rotation_euler[2]=-.25
    if mood=='Angry':
-    rig.pose.bones['Mouth'].scale.y=-(1+.25*pulse)
+    rig.pose.bones['Mouth'].scale.y=-1
     rig.pose.bones['Arm_L'].rotation_euler[0]=-.35;rig.pose.bones['Arm_R'].rotation_euler[0]=-.45
     rig.pose.bones['Brow_L'].rotation_euler[2]=-.35;rig.pose.bones['Brow_R'].rotation_euler[2]=.35;rig.pose.bones['Head'].rotation_euler[2]=.07*pulse
    if mood=='Nervous':
@@ -141,7 +154,7 @@ for name,w in widths.items():
  for action in actions:
   rig.animation_data.action=action;scene.frame_set(1)
   bpy.ops.export_scene.fbx(filepath=os.path.join(ROOT,'Art','Exports','AN_'+action.name+'.fbx'),use_selection=True,object_types={'ARMATURE'},axis_forward='-Y',axis_up='Z',add_leaf_bones=False,bake_anim=True,bake_anim_use_all_actions=False,bake_anim_use_nla_strips=False,bake_anim_simplify_factor=0,armature_nodetype='NULL')
- reports[name]={'bones':len(rig.pose.bones),'vertices':len(mesh.data.vertices),'clips':[a.name for a in actions]}
+ reports[name]={'bones':len(rig.pose.bones),'vertices':len(mesh.data.vertices),'clips':[a.name for a in actions],'morphs':['TalkOpen','SmileHide'],'open_mouth_vertices':len(open_indices),'lower_lip_strip':False}
  for a in actions:a.use_fake_user=True
  rig.location=base
  for o in [rig,mesh]:o.hide_set(True)
