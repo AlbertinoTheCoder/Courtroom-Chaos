@@ -12,7 +12,7 @@ class UAudioComponent;
 class AStaticMeshActor;
 class ACameraActor;
 UENUM()
-enum class EChaosScreen:uint8 { Play,Record,Inspect,History,Settings,Cases,Credits,Closing,Results };
+enum class EChaosScreen:uint8 { Play,Record,Inspect,History,Settings,Cases,Credits,Closing,Results,Failed };
 UCLASS()
 class AChaosHUD:public AHUD {
  GENERATED_BODY()
@@ -25,6 +25,9 @@ public:
  void Action(FString Id);
 private:
  UPROPERTY(Transient) TObjectPtr<UChaosCaseData> Case;
+ UPROPERTY(Transient) TArray<TObjectPtr<UChaosCaseData>> CaseLibrary;
+ int32 ActiveCase=0;
+ bool CaseFailed=false;
  UPROPERTY(Transient) TObjectPtr<UFont> RuntimeUIFont;
  UPROPERTY(Transient) TMap<FString,TObjectPtr<UTexture2D>> Textures;
  UPROPERTY(Transient) TMap<FString,TObjectPtr<UAnimationAsset>> Animations;
@@ -45,8 +48,8 @@ private:
  TMap<FName,TWeakObjectPtr<ACameraActor>> Cameras;
  TMap<FName,FTransform> CastRest;
  TMap<FName,FTransform> CameraRest;
- EChaosScreen Screen=EChaosScreen::Play,ReturnScreen=EChaosScreen::Play,HistoryReturn=EChaosScreen::Play,RecordReturn=EChaosScreen::Play;
- int32 Phase=-1,Statement=0,Selected=0,Credibility=5,Dialogue=0,ResolutionStage=-1,HistoryPage=0,FocusIndex=-1;
+ EChaosScreen Screen=EChaosScreen::Play,ReturnScreen=EChaosScreen::Play,HistoryReturn=EChaosScreen::Play,RecordReturn=EChaosScreen::Play,CaseReturn=EChaosScreen::Play;
+ int32 Phase=-1,Statement=0,Selected=0,Credibility=3,Dialogue=0,ResolutionStage=-1,HistoryPage=0,FocusIndex=-1;
  int32 Correct=0,Wrong=0,Presses=0,Inspections=0;
  bool Resolution=false,ReducedMotion=false,InstantText=false,HighContrast=false,InspectionRead=false,ImpactFired=false,GavelFired=false,VerdictPending=false,Completed=false,ClosingSolved=false;
  float Impact=0,GavelTime=0,Shake=0,PaperTime=0,LineElapsed=0,RevealSpeed=42,TextScale=1,MasterVolume=.8f,MusicVolume=.4f,EffectsVolume=.8f,ExhibitYaw=0,ExhibitZoom=1,CaseSeconds=0,LastBleep=0;
@@ -63,6 +66,9 @@ private:
  bool Unlocked(int32 Index) const;
  void SetScreen(EChaosScreen Value);
  void BeginCase();
+ bool SelectCase(int32 Index);
+ void LoseLife(const FString& Reason);
+ bool ReadTrial(const FString& Path);
  void Next();
  void StartGavel();
  void FinishResolution();

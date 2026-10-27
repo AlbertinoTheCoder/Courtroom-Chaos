@@ -62,4 +62,4 @@ case.verdict=[
  line('Victor','I intend to appeal the condiment.','Embarrassed'),
  line('Oliver','Justice served. Probably. And without a single hot dog being called to testify.','Happy'),
  line('Bumble','Court is adjourned. Somebody please label the mustard. And the bucket.')]
-u.EditorAssetLibrary.save_loaded_asset(case);u.log('CASE_DATA_CREATED')
+u.EditorAssetLibrary.save_loaded_asset(case,False);u.log('CASE_DATA_CREATED')

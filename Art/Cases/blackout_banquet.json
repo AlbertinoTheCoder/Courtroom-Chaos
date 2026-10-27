@@ -1,0 +1,315 @@
+{
+  "id": "blackout_banquet",
+  "asset": "DA_BlackoutBanquet",
+  "number": 2,
+  "title": "The Blackout Banquet",
+  "subtitle": "A dark reception. A smoking alibi. Follow the circuit, not the caterer.",
+  "consultation": [
+    {
+      "speaker": "Benny",
+      "text": "The charity reception went dark during the awards. Victor says my hot plate sabotaged the lights.",
+      "emotion": "Nervous"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "Was it connected to a wall socket?",
+      "emotion": "Thinking"
+    },
+    {
+      "speaker": "Benny",
+      "text": "It runs on a battery. The only thing I plugged was my lunch special.",
+      "emotion": "Speaking"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "Then we need the equipment photograph and the electrical records. An accusation needs a circuit.",
+      "emotion": "Speaking"
+    }
+  ],
+  "opening": [
+    {
+      "speaker": "Bumble",
+      "text": "We will establish why the lights failed. Nobody is to demonstrate it by touching the wiring.",
+      "emotion": "Speaking"
+    },
+    {
+      "speaker": "Victor",
+      "text": "The vendor arrived. The room went dark. My entrance was ruined. Three connected tragedies.",
+      "emotion": "Angry"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "Connected is exactly the question. Let us identify what was actually drawing power.",
+      "emotion": "Pointing"
+    },
+    {
+      "speaker": "Bumble",
+      "text": "Milo, give us your observations. Keep your conclusions on a separate plate.",
+      "emotion": "Speaking"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "battery_photo",
+      "title": "Battery hot plate",
+      "category": "OBJECT",
+      "description": "20:24. The equipment check shows a hot plate on a blue battery cassette. No mains lead is attached.",
+      "inspection": "The signed equipment check identifies a 48 V self-contained battery. The wall socket behind the table is empty. Benny was not drawing power from the stage circuit.",
+      "unlock_stage": 0,
+      "rows": [
+        "20:24 / EQUIPMENT CHECK",
+        "48 V BATTERY CASSETTE FITTED",
+        "Mains socket: EMPTY",
+        "Checked and signed: Milo Mopps"
+      ],
+      "mesh": "BatteryHotplate",
+      "diagram": "battery"
+    },
+    {
+      "id": "breaker_log",
+      "title": "Breaker event log",
+      "category": "DOCUMENT",
+      "description": "The stage circuit was healthy at 20:20. Its protective breaker tripped at 20:32:04.",
+      "inspection": "A time-stamped protective trip occurred twelve minutes after Benny arrived. This was an overload trip, not a manual switch-off.",
+      "unlock_stage": 0,
+      "rows": [
+        "STAGE CIRCUIT / EVENT HISTORY",
+        "20:20:00 / NORMAL",
+        "20:32:04 / OVERCURRENT TRIP",
+        "Manual switch event: NONE"
+      ],
+      "mesh": null,
+      "diagram": null
+    },
+    {
+      "id": "circuit_plan",
+      "title": "Reception circuit plan",
+      "category": "DIAGRAM",
+      "description": "Stage circuit capacity: 2,300 W. The serving urn uses 1,500 W on that circuit.",
+      "inspection": "The urn leaves 800 W of spare capacity. The vendor table is labelled BATTERY EQUIPMENT; the stage extension also feeds the presentation riser.",
+      "unlock_stage": 0,
+      "rows": [
+        "CIRCUIT LIMIT / 2,300 W",
+        "Serving urn / 1,500 W",
+        "Spare capacity / 800 W",
+        "Riser socket shares stage circuit"
+      ],
+      "mesh": null,
+      "diagram": "circuit"
+    },
+    {
+      "id": "cue_sheet",
+      "title": "Signed effects cue sheet",
+      "category": "DOCUMENT",
+      "description": "Victor rented a 1,200 W fog machine. Cue V: start it at 20:32 for the award presentation.",
+      "inspection": "Victor signed the rental and the 20:32 activation cue. The machine was connected to the presentation riser, on the same circuit as the urn.",
+      "unlock_stage": 1,
+      "rows": [
+        "EFFECTS RENTAL / SIGNED V. VAIN",
+        "Fog machine / 1,200 W",
+        "Cue V / START AT 20:32",
+        "Connection / PRESENTATION RISER"
+      ],
+      "mesh": null,
+      "diagram": null
+    },
+    {
+      "id": "load_report",
+      "title": "Electrician load test",
+      "category": "DOCUMENT",
+      "description": "The electrician reproduced the trip using the urn and fog machine. Benny's battery unit was isolated.",
+      "inspection": "1,500 W plus 1,200 W equals 2,700 W: 400 W above the circuit limit. The protective breaker tripped again. The cause was the event setup, not the battery hot plate.",
+      "unlock_stage": 2,
+      "rows": [
+        "CONTROLLED TEST / NEXT MORNING",
+        "Urn + fog machine = 2,700 W",
+        "Circuit capacity = 2,300 W",
+        "Result / OVERLOAD REPRODUCED"
+      ],
+      "mesh": null,
+      "diagram": null
+    },
+    {
+      "id": "inspection_tag",
+      "title": "Breaker inspection tag",
+      "category": "DOCUMENT",
+      "description": "No damaged wiring or tampering was found. The breaker opened automatically and reset after the fog machine was unplugged.",
+      "inspection": "This supports an automatic safety response. There is no evidence of a deliberate interruption or a connection from Benny's equipment.",
+      "unlock_stage": 2,
+      "rows": [
+        "INSPECTION / STAGE PANEL",
+        "Tampering / NONE FOUND",
+        "Wiring damage / NONE FOUND",
+        "Reset after fog machine disconnected"
+      ],
+      "mesh": null,
+      "diagram": null
+    }
+  ],
+  "stages": [
+    {
+      "title": "Find the connection",
+      "speaker": "Milo",
+      "contradiction": 1,
+      "evidence": "battery_photo",
+      "statements": [
+        {
+          "text": "Benny set up his hot plate at the vendor table.",
+          "press": "MILO: I checked the equipment at twenty-four minutes past eight.",
+          "emotion": "Speaking"
+        },
+        {
+          "text": "His hot plate was plugged into the stage power.",
+          "press": "MILO: I assumed every hot thing needed a wall socket. OLIVER: What does your signed check actually show?",
+          "emotion": "Nervous"
+        },
+        {
+          "text": "There was an extension lead behind the serving urn.",
+          "press": "MILO: It ran towards the presentation riser, behind the urn.",
+          "emotion": "Speaking"
+        }
+      ],
+      "resolution": [
+        {
+          "speaker": "Oliver",
+          "text": "Your signed photograph shows a battery cassette and an empty socket. The hot plate was electrically isolated.",
+          "emotion": "Pointing"
+        },
+        {
+          "speaker": "Milo",
+          "text": "I inspected it correctly and remembered it creatively.",
+          "emotion": "Embarrassed"
+        },
+        {
+          "speaker": "Brick",
+          "text": "I have obtained the effects cue sheet. Victor signed for a fog machine.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Victor",
+          "text": "Atmosphere is a perfectly legitimate expense.",
+          "emotion": "Smug"
+        }
+      ]
+    },
+    {
+      "title": "Twelve missing minutes",
+      "speaker": "Victor",
+      "contradiction": 0,
+      "evidence": "breaker_log",
+      "statements": [
+        {
+          "text": "The failure happened at 20:20, the moment the vendor arrived.",
+          "press": "VICTOR: I remember a dark cloud. OLIVER: An emotional recollection is not a breaker timestamp.",
+          "emotion": "Angry"
+        },
+        {
+          "text": "The fog machine was scheduled for the award presentation.",
+          "press": "VICTOR: At twenty thirty-two. A majestic entrance requires precision.",
+          "emotion": "Smug"
+        },
+        {
+          "text": "The serving urn was already operating before the speeches.",
+          "press": "BRICK: One thousand five hundred watts. The circuit plan records it.",
+          "emotion": "Speaking"
+        }
+      ],
+      "resolution": [
+        {
+          "speaker": "Oliver",
+          "text": "The breaker remained healthy at 20:20. It tripped at 20:32:04, immediately after your scheduled effects cue.",
+          "emotion": "Pointing"
+        },
+        {
+          "speaker": "Bumble",
+          "text": "Enter the electrician's test and inspection. We require a cause, not merely a suspicious minute.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Brick",
+          "text": "The test reproduced the failure. Nobody touched a manual switch.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Victor",
+          "text": "I would prefer the word dramatic to the word overloaded.",
+          "emotion": "Nervous"
+        }
+      ]
+    },
+    {
+      "title": "What overloaded the room?",
+      "speaker": "Victor",
+      "contradiction": 2,
+      "evidence": "load_report",
+      "statements": [
+        {
+          "text": "A fog machine is harmless theatrical equipment.",
+          "press": "VICTOR: It uses twelve hundred watts. I assumed charisma supplied the rest.",
+          "emotion": "Nervous"
+        },
+        {
+          "text": "The urn alone stayed below the circuit limit.",
+          "press": "OLIVER: Correct. Now account for the second device on the same circuit.",
+          "emotion": "Speaking"
+        },
+        {
+          "text": "The vendor must have caused the trip; the event equipment could not.",
+          "press": "VICTOR: The electrician tested both event devices together. I object to arithmetic.",
+          "emotion": "Angry"
+        }
+      ],
+      "resolution": [
+        {
+          "speaker": "Oliver",
+          "text": "The urn and fog machine drew 2,700 watts on a 2,300-watt circuit. The electrician reproduced that exact overload.",
+          "emotion": "Pointing"
+        },
+        {
+          "speaker": "Bumble",
+          "text": "And the inspection found no tampering. This was a safety breaker doing its job.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Victor",
+          "text": "My entrance briefly exceeded the building's capacity for me.",
+          "emotion": "Embarrassed"
+        }
+      ]
+    }
+  ],
+  "closing_prompt": "Account for the disconnected hot plate, the 20:32 trip, and the reproduced overload. What caused the blackout?",
+  "conclusions": [
+    "The urn and fog machine overloaded the stage circuit. Benny's battery unit was isolated.",
+    "Benny secretly switched off the lights when he arrived at 20:20.",
+    "The serving urn alone exceeded the 2,300-watt limit."
+  ],
+  "correct_conclusion": 0,
+  "verdict": [
+    {
+      "speaker": "Bumble",
+      "text": "The equipment photograph excludes the battery hot plate. The breaker log and load test identify an accidental overload.",
+      "emotion": "Speaking"
+    },
+    {
+      "speaker": "Bumble",
+      "text": "On the charge of sabotaging the reception: NOT GUILTY!",
+      "emotion": "Happy"
+    },
+    {
+      "speaker": "Benny",
+      "text": "My hot dogs survived. Their dramatic lighting did not.",
+      "emotion": "Happy"
+    },
+    {
+      "speaker": "Victor",
+      "text": "Next time I will request a dedicated circuit for my entrance.",
+      "emotion": "Embarrassed"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "A complete explanation needs a connection, a time, and a cause. We finally have all three.",
+      "emotion": "Happy"
+    }
+  ]
+}

@@ -20,7 +20,10 @@ Invoke-BlenderStage 'finish_props' 'FINISH_PROPS_OK'
 Invoke-BlenderStage 'polish_notice' 'NOTICE_POLISH_OK'
 Invoke-BlenderStage 'build_cast' 'CAST_V2_OK'
 Invoke-BlenderStage 'rig_cast' 'RIG_CAST_OK'
-foreach ($stage in @('build_ui','finish_ui','build_audio','build_adaptive_music')) {
+Invoke-BlenderStage 'build_case_props' 'CASE_PROPS_OK'
+python "$projectRoot\Tools\author_extra_cases.py"
+if ($LASTEXITCODE -ne 0) { throw 'Case source generation failed' }
+foreach ($stage in @('build_case_cards','build_ui','finish_ui','build_audio','build_adaptive_music')) {
   python "$projectRoot\Tools\$stage.py"
   if ($LASTEXITCODE -ne 0) { throw "Python stage $stage failed" }
 }

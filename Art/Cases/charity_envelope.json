@@ -1,0 +1,320 @@
+{
+  "id": "charity_envelope",
+  "asset": "DA_CharityEnvelope",
+  "number": 3,
+  "title": "The Charity Envelope",
+  "subtitle": "Four hundred and eighty pounds vanished. A seal and a paper trail tell another story.",
+  "consultation": [
+    {
+      "speaker": "Benny",
+      "text": "The donation box was empty after the courthouse fundraiser. They think I took the money.",
+      "emotion": "Nervous"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "Who last checked the box, and who was authorised to empty it?",
+      "emotion": "Thinking"
+    },
+    {
+      "speaker": "Benny",
+      "text": "I sold the hot dogs. Brick handled security. Milo says the box was empty at half past four.",
+      "emotion": "Speaking"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "We will check that time, the keys, and the collection trail. Nobody is guilty because they stood near a box.",
+      "emotion": "Speaking"
+    }
+  ],
+  "opening": [
+    {
+      "speaker": "Bumble",
+      "text": "This court takes charity money seriously. The decorative collection box has already retained counsel.",
+      "emotion": "Speaking"
+    },
+    {
+      "speaker": "Victor",
+      "text": "An empty box, a borrowed key, and a vendor with pockets. The prosecution sees a pattern.",
+      "emotion": "Smug"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "A pattern is useful when its pieces belong to the same facts. Let us check them.",
+      "emotion": "Pointing"
+    },
+    {
+      "speaker": "Bumble",
+      "text": "Milo, start with your last observation of the collection box.",
+      "emotion": "Speaking"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "fundraiser_photo",
+      "title": "Fundraiser photograph",
+      "category": "PHOTOGRAPH",
+      "description": "16:35. The original event photograph shows sealed charity envelope C17 inside the transparent collection box.",
+      "inspection": "The camera timestamp is 16:35 and the blue C17 seal is visible through the box. This disproves the claim that the box stayed empty from 16:30 until 17:00.",
+      "unlock_stage": 0,
+      "rows": [
+        "ORIGINAL CAMERA FILE / 16:35",
+        "Collection box / ENVELOPE VISIBLE",
+        "Blue tamper seal / C17",
+        "Photographer: event volunteer"
+      ],
+      "mesh": null,
+      "diagram": "envelope"
+    },
+    {
+      "id": "donation_ledger",
+      "title": "Signed donation ledger",
+      "category": "DOCUMENT",
+      "description": "The volunteers counted 480 pounds and sealed it in envelope C17 at 16:25. Two volunteers signed the ledger.",
+      "inspection": "Amount, envelope ID and seal number belong together: 480 pounds in C17. Any later receipt must match both the amount and the intact seal.",
+      "unlock_stage": 0,
+      "rows": [
+        "16:25 / FINAL VOLUNTEER COUNT",
+        "Total / 480 POUNDS",
+        "Envelope / C17 / BLUE SEAL",
+        "Two volunteer signatures verified"
+      ],
+      "mesh": null,
+      "diagram": null
+    },
+    {
+      "id": "collection_policy",
+      "title": "Cash collection policy",
+      "category": "DOCUMENT",
+      "description": "Security must collect sealed donations at 16:40 and use the night-deposit safe. Vendors may not handle donation-box keys.",
+      "inspection": "An empty display box after the scheduled collection is expected. The money is meant to move into the secure deposit system, not remain on display.",
+      "unlock_stage": 0,
+      "rows": [
+        "DAILY COLLECTION / 16:40",
+        "Responsible officer / SECURITY",
+        "Sealed envelopes to NIGHT SAFE",
+        "Donation-box key / D2"
+      ],
+      "mesh": null,
+      "diagram": null
+    },
+    {
+      "id": "key_register",
+      "title": "Borrowed-key register",
+      "category": "DOCUMENT",
+      "description": "Benny borrowed K4 at 16:10 and returned it at 16:45. K4 opens the catering cupboard. D2 remained with Officer Brick.",
+      "inspection": "The alleged borrowed key cannot open the donation box. The register distinguishes K4, the catering cupboard key, from D2, the donation-box key.",
+      "unlock_stage": 1,
+      "rows": [
+        "K4 / CATERING CUPBOARD",
+        "16:10 OUT / 16:45 RETURNED / BENNY",
+        "D2 / DONATION BOX",
+        "Custodian throughout / OFFICER BRICK"
+      ],
+      "mesh": null,
+      "diagram": null
+    },
+    {
+      "id": "deposit_receipt",
+      "title": "Night-safe deposit receipt",
+      "category": "DOCUMENT",
+      "description": "16:43. Officer Brick deposited sealed envelope C17. The safe issued receipt N204. The collection entry was filed under security, not catering.",
+      "inspection": "The same envelope ID and intact blue seal link the photographed money to a secure deposit before the 17:00 missing-money report.",
+      "unlock_stage": 2,
+      "rows": [
+        "16:43 / NIGHT SAFE / RECEIPT N204",
+        "Envelope / C17 / BLUE SEAL INTACT",
+        "Deposited by / OFFICER BRICK",
+        "Collection time / 16:40"
+      ],
+      "mesh": null,
+      "diagram": null
+    },
+    {
+      "id": "bank_confirmation",
+      "title": "Bank return: envelope C17",
+      "category": "OBJECT",
+      "description": "Next morning, the bank opened C17 from deposit N204 and counted 480 pounds. The seal was intact on arrival.",
+      "inspection": "The bank count matches the volunteers' ledger exactly. The funds were secured and accounted for; an empty display box was mistaken for a theft.",
+      "unlock_stage": 2,
+      "rows": [
+        "DEPOSIT N204 / ENVELOPE C17",
+        "Seal on arrival / INTACT",
+        "Bank count / 480 POUNDS",
+        "Matches signed volunteer ledger"
+      ],
+      "mesh": "CharityEnvelope",
+      "diagram": null
+    }
+  ],
+  "stages": [
+    {
+      "title": "When was it empty?",
+      "speaker": "Milo",
+      "contradiction": 0,
+      "evidence": "fundraiser_photo",
+      "statements": [
+        {
+          "text": "The box stayed empty from 16:30 until my 17:00 report.",
+          "press": "MILO: I looked at the table. I may have remembered the wrong photograph.",
+          "emotion": "Nervous"
+        },
+        {
+          "text": "The missing-money report was made at 17:00.",
+          "press": "MILO: I reported an empty box. I did not ask whether collection had happened.",
+          "emotion": "Speaking"
+        },
+        {
+          "text": "The donations had been sealed before the stalls closed.",
+          "press": "MILO: Two volunteers counted them and used a blue seal.",
+          "emotion": "Speaking"
+        }
+      ],
+      "resolution": [
+        {
+          "speaker": "Oliver",
+          "text": "The original 16:35 photograph shows envelope C17 still inside the box. Your claim that it stayed empty is contradicted by the photograph.",
+          "emotion": "Pointing"
+        },
+        {
+          "speaker": "Milo",
+          "text": "Then my missing money was a missing timestamp.",
+          "emotion": "Embarrassed"
+        },
+        {
+          "speaker": "Brick",
+          "text": "I have the key register. Every borrowed key has its own lock listed.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Victor",
+          "text": "Then let us discuss the key in the defendant's possession.",
+          "emotion": "Suspicious"
+        }
+      ]
+    },
+    {
+      "title": "A key to which lock?",
+      "speaker": "Victor",
+      "contradiction": 1,
+      "evidence": "key_register",
+      "statements": [
+        {
+          "text": "Benny borrowed a courthouse key that afternoon.",
+          "press": "VICTOR: Signed out at sixteen ten. At last, a signature that is not mine.",
+          "emotion": "Speaking"
+        },
+        {
+          "text": "That borrowed key opened the donation box.",
+          "press": "VICTOR: It is marked K4. I did not consider that the number might matter.",
+          "emotion": "Smug"
+        },
+        {
+          "text": "The collection policy reserves donation handling for security.",
+          "press": "BRICK: The donation-box key is D2. I kept it on my duty ring.",
+          "emotion": "Speaking"
+        }
+      ],
+      "resolution": [
+        {
+          "speaker": "Oliver",
+          "text": "K4 opens the catering cupboard. D2 opens the donation box and remained with Brick. Your keys do not match.",
+          "emotion": "Pointing"
+        },
+        {
+          "speaker": "Brick",
+          "text": "I collected C17 at sixteen forty under the policy. The receipt was filed in security.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Bumble",
+          "text": "Enter the night-safe receipt and the bank confirmation. Trace the actual envelope.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Benny",
+          "text": "I borrowed a cupboard key to retrieve napkins. My most dangerous equipment is absorbent.",
+          "emotion": "Speaking"
+        }
+      ]
+    },
+    {
+      "title": "Follow the seal",
+      "speaker": "Milo",
+      "contradiction": 2,
+      "evidence": "deposit_receipt",
+      "statements": [
+        {
+          "text": "By 17:00 the display box was empty.",
+          "press": "MILO: That observation is correct. The inference is having a difficult afternoon.",
+          "emotion": "Speaking"
+        },
+        {
+          "text": "The donation ledger records 480 pounds in envelope C17.",
+          "press": "MILO: The blue seal was intact when the volunteers finished.",
+          "emotion": "Speaking"
+        },
+        {
+          "text": "No authorised collection occurred before my 17:00 report.",
+          "press": "MILO: I checked the catering folder. OLIVER: Where does security file its receipts?",
+          "emotion": "Nervous"
+        }
+      ],
+      "resolution": [
+        {
+          "speaker": "Oliver",
+          "text": "Receipt N204 records Brick depositing intact C17 at 16:43, seventeen minutes before your report.",
+          "emotion": "Pointing"
+        },
+        {
+          "speaker": "Brick",
+          "text": "The bank counted four hundred and eighty pounds. Same envelope. Same seal. Full amount.",
+          "emotion": "Speaking"
+        },
+        {
+          "speaker": "Bumble",
+          "text": "The box was empty because its contents were safely collected. Give the court the complete chain.",
+          "emotion": "Speaking"
+        }
+      ]
+    }
+  ],
+  "closing_prompt": "Connect the photograph, the different keys, receipt N204 and the bank count. Where did the donations go?",
+  "conclusions": [
+    "Benny emptied the box with K4 and returned the money anonymously.",
+    "Brick collected sealed C17 under policy. The night-safe receipt and bank count account for all 480 pounds.",
+    "The 16:35 photograph proves the box was empty at 16:30."
+  ],
+  "correct_conclusion": 1,
+  "verdict": [
+    {
+      "speaker": "Bumble",
+      "text": "The money was present at 16:35. Benny's key could not open the box. The authorised deposit and bank count account for every pound.",
+      "emotion": "Speaking"
+    },
+    {
+      "speaker": "Bumble",
+      "text": "On the charge of stealing the charity donations: NOT GUILTY!",
+      "emotion": "Happy"
+    },
+    {
+      "speaker": "Benny",
+      "text": "Can the charity keep the interest? I have been paying in anxiety.",
+      "emotion": "Happy"
+    },
+    {
+      "speaker": "Milo",
+      "text": "I have added a new line to my checklist: ask security.",
+      "emotion": "Embarrassed"
+    },
+    {
+      "speaker": "Oliver",
+      "text": "Follow the actual money. A nearby pocket is not a chain of custody.",
+      "emotion": "Happy"
+    },
+    {
+      "speaker": "Brick",
+      "text": "Receipt filed. Case closed. Napkins returned.",
+      "emotion": "Speaking"
+    }
+  ]
+}

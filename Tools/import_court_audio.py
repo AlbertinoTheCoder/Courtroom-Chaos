@@ -21,5 +21,6 @@ data=u.load_asset('/Game/Audio/DA_CourtAudio') or assets.create_asset('DA_CourtA
 data.set_editor_property('speech',{key:u.ChaosSpeechSequence(takes=[takes[name] for name in names]) for key,names in manifest['sequences'].items()})
 data.set_editor_property('voice_presets',{name:profile['voice'] for name,profile in manifest['profiles'].items()})
 data.set_editor_property('music_layers',[u.load_asset('/Game/Audio/'+name) for name in ['CourtroomShuffle','CourtroomTension','CourtroomChaos','CourtroomMayhem']])
+assert u.EditorAssetLibrary.save_loaded_asset(data,False)
 u.EditorAssetLibrary.save_directory('/Game/Audio')
 u.log('COURT_AUDIO_IMPORT_OK clips='+str(len(takes)))

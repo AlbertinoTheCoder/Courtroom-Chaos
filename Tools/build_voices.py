@@ -35,7 +35,15 @@ for node in ast.walk(tree):
  if isinstance(node,ast.Assign):
   for target in node.targets:
    if isinstance(target,ast.Attribute) and target.attr=='closing_prompt':add('Oliver',ast.literal_eval(node.value))
-# Fixed feedback authored in the runtime, including wrong choices and recesses.
+for path in sorted((ROOT/'Art'/'Cases').glob('*.json')):
+ data=json.loads(path.read_text(encoding='utf-8'))
+ for section in ['consultation','opening','verdict']:
+  for entry in data[section]:add(entry['speaker'],entry['text'])
+ for stage in data['stages']:
+  for entry in stage['statements']:add(stage['speaker'],entry['text']);add('Feedback',entry['press'])
+  for entry in stage['resolution']:add(entry['speaker'],entry['text'])
+ add('Oliver',data['closing_prompt'])
+# Fixed feedback authored in the runtime, including wrong choices.
 source=(ROOT/'Source/CourtSimulator/ChaosGame.cpp').read_text()
 for raw in re.findall(r'TEXT\("((?:[^"\\]|\\.)*)"\)',source):
  if raw.startswith('BUMBLE: '):add('Feedback',ast.literal_eval('"'+raw+'"'))
