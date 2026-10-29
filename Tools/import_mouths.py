@@ -7,6 +7,11 @@ for name in ['Oliver','Victor','Bumble','Benny','Milo','Brick']:
  t=u.AssetImportTask();t.filename=os.path.join(ROOT,'Art','Exports','SK_'+name+'.fbx');t.destination_path='/Game/Characters/Rigged';t.destination_name='SK_'+name;t.automated=True;t.replace_existing=True;t.save=True
  o=u.FbxImportUI();o.automated_import_should_detect_type=False;o.mesh_type_to_import=u.FBXImportType.FBXIT_SKELETAL_MESH;o.import_mesh=True;o.import_as_skeletal=True;o.import_materials=False;o.import_textures=False;o.import_animations=False;o.create_physics_asset=False;o.skeleton=mesh.skeleton;o.skeletal_mesh_import_data.set_editor_property('import_morph_targets',True);t.options=o
  u.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+ slots=mesh.materials
+ for i,slot in enumerate(slots):
+  material=u.load_asset('/Game/Characters/'+str(slot.material_slot_name).split('.')[0]) or u.load_asset('/Game/Courtroom/'+str(slot.material_slot_name).split('.')[0]);assert material,slot.material_slot_name
+  slot.set_editor_property('material_interface',material);slots[i]=slot
+ mesh.set_editor_property('materials',slots);u.EditorAssetLibrary.save_loaded_asset(mesh,False)
  targets=[m.get_name() for m in mesh.get_editor_property('morph_targets')]
  assert 'TalkOpen' in targets and 'SmileHide' in targets,(name,targets)
  u.log('MOUTH_IMPORT '+name+' '+str(targets))

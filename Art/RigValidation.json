@@ -1,7 +1,7 @@
 {
   "Oliver": {
     "bones": 17,
-    "vertices": 23514,
+    "vertices": 24398,
     "clips": [
       "Oliver_Idle",
       "Oliver_Listening",
@@ -28,12 +28,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Victor": {
     "bones": 17,
-    "vertices": 23514,
+    "vertices": 24398,
     "clips": [
       "Victor_Idle",
       "Victor_Listening",
@@ -60,12 +60,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Bumble": {
     "bones": 17,
-    "vertices": 21498,
+    "vertices": 22382,
     "clips": [
       "Bumble_Idle",
       "Bumble_Listening",
@@ -92,12 +92,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Benny": {
     "bones": 17,
-    "vertices": 27724,
+    "vertices": 28608,
     "clips": [
       "Benny_Idle",
       "Benny_Listening",
@@ -124,12 +124,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Milo": {
     "bones": 17,
-    "vertices": 25882,
+    "vertices": 26766,
     "clips": [
       "Milo_Idle",
       "Milo_Listening",
@@ -156,12 +156,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Brick": {
     "bones": 17,
-    "vertices": 25626,
+    "vertices": 26510,
     "clips": [
       "Brick_Idle",
       "Brick_Listening",
@@ -188,7 +188,7 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   }
 }

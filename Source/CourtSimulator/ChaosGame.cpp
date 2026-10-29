@@ -44,6 +44,13 @@ namespace Court {
  double Number(const TSharedPtr<FJsonObject>& J,const TCHAR* K,double D){double V;return J->TryGetNumberField(K,V)&&FMath::IsFinite(V)?V:D;}
  FString String(const TSharedPtr<FJsonObject>& J,const TCHAR* K,const FString& D=FString()){FString V;return J->TryGetStringField(K,V)?V:D;}
  bool Boolean(const TSharedPtr<FJsonObject>& J,const TCHAR* K,bool D=false){bool V;return J->TryGetBoolField(K,V)?V:D;}
+ bool Supports(const UChaosCaseData& Case,int32 Stage,FName Evidence){
+  if(!Case.Stages.IsValidIndex(Stage))return false;if(Case.Stages[Stage].Evidence==Evidence)return true;
+  // These authored exhibits independently support the same deduction.
+  if(Case.CaseId==TEXT("golden_gavel"))return (Stage==0&&Evidence==TEXT("photo"))||((Stage==1||Stage==2)&&Evidence==TEXT("cart"));
+  if(Case.CaseId==TEXT("blackout_banquet"))return (Stage==0&&Evidence==TEXT("circuit_plan"))||(Stage==2&&(Evidence==TEXT("circuit_plan")||Evidence==TEXT("cue_sheet")));
+  return Case.CaseId==TEXT("charity_envelope")&&Stage==2&&Evidence==TEXT("bank_confirmation");
+ }
  float Ease(float T){return FMath::SmoothStep(0.f,1.f,FMath::Clamp(T,0.f,1.f));}
 }
 AChaosGameMode::AChaosGameMode(){HUDClass=AChaosHUD::StaticClass();DefaultPawnClass=nullptr;}
@@ -91,7 +98,7 @@ void AChaosHUD::Tick(float D){
  UpdateSpeech(D);UpdateMusic(D);
  UpdateProps(D);AnimateCast();SelectCamera();
 }
-void AChaosHUD::SetScreen(EChaosScreen V){Screen=V;FocusIndex=-1;Buttons.Empty();PreviousButtons.Empty();if(ExhibitActor)ExhibitActor->SetActorHiddenInGame(V!=EChaosScreen::Inspect);}
+void AChaosHUD::SetScreen(EChaosScreen V){Screen=V;if(V!=EChaosScreen::Play&&V!=EChaosScreen::Closing&&IsValid(SpeechAudio)&&!SpeechPaused){SpeechPaused=true;SpeechAudio->SetPaused(true);}FocusIndex=-1;Buttons.Empty();PreviousButtons.Empty();if(ExhibitActor)ExhibitActor->SetActorHiddenInGame(V!=EChaosScreen::Inspect);}
 void AChaosHUD::Record(const FString& Raw){const FString S=DisplaySpeech(Raw);if(S.IsEmpty()||S.EndsWith(TEXT(": ")))return;if(History.IsEmpty()||History.Last()!=S){History.Add(S);if(History.Num()>100)History.RemoveAt(0);}}
 bool AChaosHUD::SelectCase(int32 Index){
  if(!CaseLibrary.IsValidIndex(Index))return false;StopSpeech();ActiveCase=Index;Case=CaseLibrary[Index];ApplyCaseModels();Error.Empty();CaseFailed=false;Resolution=false;Impact=GavelTime=0;Feedback.Empty();return Case->Validate(Error);
@@ -216,7 +223,7 @@ void AChaosHUD::Action(FString Id){
  if(Id==TEXT("prev")){if(SpeechBusy()){TextRevealOverride=true;return;}if(Stage()&&!Resolution&&Impact<=0){Statement=(Statement+Stage()->Statements.Num()-1)%Stage()->Statements.Num();Feedback.Empty();Save();}return;}
  if(Id==TEXT("press")){if(const auto S=Stage())if(!Resolution&&Impact<=0){StopSpeech();ChaosPulse=FMath::Min(1.f,ChaosPulse+.14f);Feedback=S->Statements[Statement].Press;++Presses;Record(TEXT("PRESS: ")+Feedback);LineElapsed=0;Sound(TEXT("Press"),.35f);Save();}return;}
  if(Id==TEXT("present")){const auto S=Stage();if(!S||Resolution||Impact>0||!Unlocked(Selected))return;SetScreen(EChaosScreen::Play);
-  if(S->Contradiction==Statement&&S->Evidence==Case->Evidence[Selected].Id){ResolutionStage=StageIndex();Resolution=true;Dialogue=0;++Correct;++Phase;Statement=0;StartObjection();Record(TEXT("CONTRADICTION: ")+Case->Evidence[Selected].Title);}
+  if(Court::Supports(*Case,StageIndex(),Case->Evidence[Selected].Id)){Statement=S->Contradiction;Record(TEXT("CHALLENGED CLAIM: ")+S->Statements[Statement].Text);ResolutionStage=StageIndex();Resolution=true;Dialogue=0;++Correct;++Phase;Statement=0;StartObjection();Record(TEXT("CONTRADICTION: ")+Case->Evidence[Selected].Title);}
   else{LoseLife(TEXT("BUMBLE: That evidence does not contradict this statement. Read both closely, counsel."));}Save();return;
  }
 }
@@ -283,7 +290,7 @@ void AChaosHUD::DrawTrial(){
  else{Button(TEXT("history"),TEXT("HISTORY [H]"),70,637,220);Button(TEXT("next"),GavelTime>0?TEXT("SKIP GAVEL / SPACE"):SpeechBusy()?TEXT("LISTENING..."):TEXT("CONTINUE / SPACE  >"),850,637,355);}
 }
 void AChaosHUD::DrawRecord(){
- Sprite(TEXT("EvidencePanel"),35,125,1210,550);Label(TEXT("THE COURT RECORD"),65,151,31,Court::Ink);Label(TEXT("INSPECT THE FACTS. THEN MAKE YOUR CASE."),65,198,15,Court::Red);
+ Sprite(TEXT("EvidencePanel"),35,125,1210,550);Label(TEXT("THE COURT RECORD"),65,151,31,Court::Ink);Label(TEXT("MATCH PROOF TO THIS TESTIMONY. VALID EVIDENCE FOCUSES THE CONTRADICTED CLAIM."),65,198,15,Court::Red);
  for(int I=0;I<Case->Evidence.Num();++I){const auto& E=Case->Evidence[I];float Y=240+I*56;Texture(E.Illustration,65,Y,61,47,Unlocked(I)?1:.25f);Button(TEXT("ev_")+FString::FromInt(I),Unlocked(I)?E.Title:TEXT("NOT YET ENTERED"),140,Y,290,Unlocked(I));if(Selected==I)Panel(131,Y+7,4,32,Court::Gold);}
  const auto& E=Case->Evidence[Selected];Label(E.Title,475,233,27,Court::Ink);Label(E.Category.ToUpper(),475,277,15,Court::Red);Texture(E.Illustration,790,218,340,250);Wrapped(E.Description,475,485,710,21*TextScale,Court::Ink);Button(TEXT("inspect"),TEXT("INSPECT"),475,600,210);Button(TEXT("present"),TEXT("PRESENT / OBJECT"),700,600,255,Stage()!=nullptr);Button(TEXT("back"),TEXT("BACK"),972,600,225);
 }
@@ -317,7 +324,7 @@ void AChaosHUD::RunTests(){
  bool OK=CaseLibrary.Num()==3;const bool OldInstant=InstantText;InstantText=true;
  for(int32 C=0;C<CaseLibrary.Num();++C){
   OK&=SelectCase(C)&&ValidateAudio();BeginCase();Phase=1;Dialogue=0;StartGavel();Next();OK&=GavelTime==0&&Dialogue==0;BeginCase();int Guard=0;while(Phase<2&&++Guard<30)Next();OK&=Phase==2&&!Unlocked(Case->Evidence.Num()-1);
-  Action(TEXT("press"));OK&=Presses==1&&!Feedback.IsEmpty()&&Credibility==3;Selected=0;Statement=Stage()->Contradiction;while(Case->Evidence[Selected].Id==Stage()->Evidence)++Selected;Action(TEXT("present"));OK&=Wrong==1&&Credibility==2&&Phase==2;
+  Action(TEXT("press"));OK&=Presses==1&&!Feedback.IsEmpty()&&Credibility==3;Selected=0;Statement=Stage()->Contradiction;while(Court::Supports(*Case,StageIndex(),Case->Evidence[Selected].Id))++Selected;Action(TEXT("present"));OK&=Wrong==1&&Credibility==2&&Phase==2;
   for(int I=0;I<Case->Stages.Num();++I){const auto S=Stage();if(!S){OK=false;break;}Statement=S->Contradiction;for(int E=0;E<Case->Evidence.Num();++E)if(Case->Evidence[E].Id==S->Evidence)Selected=E;Action(TEXT("present"));OK&=Correct==I+1;Action(TEXT("skip"));Guard=0;while(Resolution&&++Guard<20)Next();}
   Action(TEXT("conclusion_")+FString::FromInt(Case->CorrectConclusion));OK&=ClosingSolved&&Phase==FinalPhase();GavelTime=0;Guard=0;while(Screen!=EChaosScreen::Results&&++Guard<20)Next();OK&=Completed&&Screen==EChaosScreen::Results;Save();Phase=0;OK&=Load()&&Phase==FinalPhase()&&ActiveCase==C;
   Action(TEXT("cases"));Action(TEXT("settings"));Action(TEXT("back"));OK&=Screen==EChaosScreen::Cases;Action(TEXT("back"));OK&=Screen==EChaosScreen::Results;
@@ -329,13 +336,15 @@ void AChaosHUD::RunTests(){
    SelectCase(1);BeginCase();OK&=ReadTrial(OldSlot)&&ActiveCase==0&&Completed&&Credibility==3;
   }
   // Both evidence and closing mistakes draw from the same finite three-life budget.
-  BeginCase();Phase=2;Statement=Stage()->Contradiction;Selected=0;while(Case->Evidence[Selected].Id==Stage()->Evidence)++Selected;
+  BeginCase();Phase=2;Statement=Stage()->Contradiction;Selected=0;while(Court::Supports(*Case,StageIndex(),Case->Evidence[Selected].Id))++Selected;
   Action(TEXT("present"));Action(TEXT("present"));OK&=Credibility==1&&!CaseFailed;
   Phase=FinalPhase();SetScreen(EChaosScreen::Closing);Action(TEXT("conclusion_")+FString::FromInt((Case->CorrectConclusion+1)%Case->Conclusions.Num()));OK&=Credibility==0&&CaseFailed&&Screen==EChaosScreen::Failed;
   Save();OK&=Load()&&CaseFailed&&Screen==EChaosScreen::Failed;int OldPhase=Phase;Action(TEXT("next"));Action(TEXT("press"));OK&=Phase==OldPhase&&Credibility==0;
   Action(TEXT("menu"));OK&=!CaseFailed&&Phase==-1;Action(TEXT("load"));OK&=CaseFailed&&Credibility==0;
   Action(TEXT("restart"));OK&=Phase==0&&Credibility==3&&!CaseFailed&&Correct==0&&Wrong==0&&Inspected.IsEmpty()&&!Unlocked(Case->Evidence.Num()-1);
-  Phase=2;Statement=Stage()->Contradiction;Selected=0;while(Case->Evidence[Selected].Id==Stage()->Evidence)++Selected;for(int32 Miss=0;Miss<3;++Miss)Action(TEXT("present"));OK&=CaseFailed&&Credibility==0&&Screen==EChaosScreen::Failed;Action(TEXT("restart"));
+  Phase=2;Statement=Stage()->Contradiction;Selected=0;while(Court::Supports(*Case,StageIndex(),Case->Evidence[Selected].Id))++Selected;for(int32 Miss=0;Miss<3;++Miss)Action(TEXT("present"));OK&=CaseFailed&&Credibility==0&&Screen==EChaosScreen::Failed;Action(TEXT("restart"));
+  // Valid proof must be accepted from every testimony page, not only one hidden index.
+  for(int32 StageNo=0;StageNo<Case->Stages.Num();++StageNo)for(int32 Page=0;Page<Case->Stages[StageNo].Statements.Num();++Page){BeginCase();Phase=StageNo+2;Statement=Page;for(int32 E=0;E<Case->Evidence.Num();++E)if(Case->Evidence[E].Id==Stage()->Evidence)Selected=E;Action(TEXT("present"));OK&=Resolution&&Correct==1&&Credibility==3&&Phase==StageNo+3;}
   FFileHelper::SaveStringToFile(CompletedSave,*Court::File(TEXT("Trial_")+Case->CaseId.ToString()+TEXT(".json")));
   UE_LOG(LogTemp,Display,TEXT("CASE_TEST %s cumulative=%d"),*Case->CaseId.ToString(),OK);
  }

@@ -38,6 +38,7 @@ u.EditorAssetLibrary.save_directory('/Game')
 import runpy
 runpy.run_path(os.path.join(ROOT,'Tools','refine_scene.py'))
 runpy.run_path(os.path.join(ROOT,'Tools','polish_scene.py'))
+runpy.run_path(os.path.join(ROOT,'Tools','create_mouth_material.py'))
 runpy.run_path(os.path.join(ROOT,'Tools','import_rigs.py'))
 runpy.run_path(os.path.join(ROOT,'Tools','import_finish.py'))
 runpy.run_path(os.path.join(ROOT,'Tools','import_case_cast.py'))

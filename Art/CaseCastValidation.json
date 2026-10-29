@@ -1,7 +1,7 @@
 {
   "Renzo": {
     "bones": 17,
-    "vertices": 25314,
+    "vertices": 26198,
     "clips": [
       "Renzo_Idle",
       "Renzo_Listening",
@@ -28,12 +28,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Pip": {
     "bones": 17,
-    "vertices": 25454,
+    "vertices": 26338,
     "clips": [
       "Pip_Idle",
       "Pip_Listening",
@@ -60,12 +60,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Nora": {
     "bones": 17,
-    "vertices": 22960,
+    "vertices": 23844,
     "clips": [
       "Nora_Idle",
       "Nora_Listening",
@@ -92,12 +92,12 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   },
   "Agnes": {
     "bones": 17,
-    "vertices": 25380,
+    "vertices": 26264,
     "clips": [
       "Agnes_Idle",
       "Agnes_Listening",
@@ -124,7 +124,7 @@
       "TalkOpen",
       "SmileHide"
     ],
-    "open_mouth_vertices": 222,
+    "open_mouth_vertices": 1106,
     "lower_lip_strip": false
   }
 }

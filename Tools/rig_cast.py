@@ -17,13 +17,17 @@ def arm_pose(rig,side,target):
  arm.matrix=Matrix.Translation(shoulder)@(elbow-shoulder).to_track_quat('Y','Z').to_matrix().to_4x4();bpy.context.view_layer.update()
  fore.matrix=Matrix.Translation(elbow)@(target-elbow).to_track_quat('Y','Z').to_matrix().to_4x4();bpy.context.view_layer.update()
  hand.matrix=Matrix.Translation(target)@Vector((0,-1,0)).to_track_quat('Y','Z').to_matrix().to_4x4();bpy.context.view_layer.update()
+# A dedicated matte mouth interior; the rest pose stays inside the head at full size.
+mouth_material=bpy.data.materials.get('MouthInk') or bpy.data.materials.new('MouthInk')
+mouth_material.diffuse_color=(.012,.003,.006,1);mouth_material.use_nodes=True
+nodes=mouth_material.node_tree.nodes;nodes.clear();emission=nodes.new('ShaderNodeEmission');emission.inputs['Color'].default_value=(.012,.003,.006,1);output=nodes.new('ShaderNodeOutputMaterial');mouth_material.node_tree.links.new(emission.outputs[0],output.inputs['Surface'])
 reports={}
 for name,w in widths.items():
  collection=bpy.data.collections[name]
  objects=[o for o in collection.objects if o.type=='MESH']
  base=next(o.location.copy() for o in objects if o.name.startswith('Tailored silhouette'))
- bpy.ops.mesh.primitive_uv_sphere_add(segments=20,ring_count=12,location=base+Vector((0,-.32,1.84)))
- mouth_open=bpy.context.object;mouth_open.name='Open mouth '+name;mouth_open.scale=(.055,.015,.027);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);mouth_open.data.materials.append(bpy.data.materials['hair'])
+ bpy.ops.mesh.primitive_uv_sphere_add(segments=48,ring_count=24,location=base+Vector((0,-.32,1.84)))
+ mouth_open=bpy.context.object;mouth_open.name='Open mouth '+name;mouth_open.scale=(.055,.015,.027);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);mouth_open.data.materials.append(mouth_material)
  for f in mouth_open.data.polygons:f.use_smooth=True
  objects.append(mouth_open)
  bpy.ops.object.select_all(action='DESELECT')
@@ -79,11 +83,11 @@ for name,w in widths.items():
  open_positions={i:mesh.data.vertices[i].co.copy() for i in open_indices};center=Vector((0,-.32,1.84))
  basis=mesh.shape_key_add(name='Basis')
  for i in open_indices:
-  rest=center+(open_positions[i]-center)*.001;basis.data[i].co=rest;mesh.data.vertices[i].co=rest
+  delta=open_positions[i]-center;rest=Vector((delta.x,-.25+delta.y,1.84+delta.z*.25));basis.data[i].co=rest;mesh.data.vertices[i].co=rest
  talk=mesh.shape_key_add(name='TalkOpen')
  for i in open_indices:talk.data[i].co=open_positions[i]
  hide=mesh.shape_key_add(name='SmileHide')
- for i in smile_indices:hide.data[i].co=Vector((0,-.30,1.84))
+ for i in smile_indices:hide.data[i].co=basis.data[i].co+Vector((0,.12,0))
  # Joining preserves deform groups; keep one armature modifier.
  for mod in list(mesh.modifiers):
   if mod.type=='ARMATURE':mesh.modifiers.remove(mod)
