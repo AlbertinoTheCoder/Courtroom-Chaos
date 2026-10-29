@@ -1,0 +1,130 @@
+{
+  "Renzo": {
+    "bones": 17,
+    "vertices": 25314,
+    "clips": [
+      "Renzo_Idle",
+      "Renzo_Listening",
+      "Renzo_Speaking",
+      "Renzo_Thinking",
+      "Renzo_Confused",
+      "Renzo_Happy",
+      "Renzo_Smug",
+      "Renzo_Angry",
+      "Renzo_Nervous",
+      "Renzo_Shock",
+      "Renzo_Sad",
+      "Renzo_Suspicious",
+      "Renzo_Frustrated",
+      "Renzo_Pointing",
+      "Renzo_Slam",
+      "Renzo_Gavel",
+      "Renzo_LeanForward",
+      "Renzo_LeanBackward",
+      "Renzo_Celebrate",
+      "Renzo_Embarrassed"
+    ],
+    "morphs": [
+      "TalkOpen",
+      "SmileHide"
+    ],
+    "open_mouth_vertices": 222,
+    "lower_lip_strip": false
+  },
+  "Pip": {
+    "bones": 17,
+    "vertices": 25454,
+    "clips": [
+      "Pip_Idle",
+      "Pip_Listening",
+      "Pip_Speaking",
+      "Pip_Thinking",
+      "Pip_Confused",
+      "Pip_Happy",
+      "Pip_Smug",
+      "Pip_Angry",
+      "Pip_Nervous",
+      "Pip_Shock",
+      "Pip_Sad",
+      "Pip_Suspicious",
+      "Pip_Frustrated",
+      "Pip_Pointing",
+      "Pip_Slam",
+      "Pip_Gavel",
+      "Pip_LeanForward",
+      "Pip_LeanBackward",
+      "Pip_Celebrate",
+      "Pip_Embarrassed"
+    ],
+    "morphs": [
+      "TalkOpen",
+      "SmileHide"
+    ],
+    "open_mouth_vertices": 222,
+    "lower_lip_strip": false
+  },
+  "Nora": {
+    "bones": 17,
+    "vertices": 22960,
+    "clips": [
+      "Nora_Idle",
+      "Nora_Listening",
+      "Nora_Speaking",
+      "Nora_Thinking",
+      "Nora_Confused",
+      "Nora_Happy",
+      "Nora_Smug",
+      "Nora_Angry",
+      "Nora_Nervous",
+      "Nora_Shock",
+      "Nora_Sad",
+      "Nora_Suspicious",
+      "Nora_Frustrated",
+      "Nora_Pointing",
+      "Nora_Slam",
+      "Nora_Gavel",
+      "Nora_LeanForward",
+      "Nora_LeanBackward",
+      "Nora_Celebrate",
+      "Nora_Embarrassed"
+    ],
+    "morphs": [
+      "TalkOpen",
+      "SmileHide"
+    ],
+    "open_mouth_vertices": 222,
+    "lower_lip_strip": false
+  },
+  "Agnes": {
+    "bones": 17,
+    "vertices": 25380,
+    "clips": [
+      "Agnes_Idle",
+      "Agnes_Listening",
+      "Agnes_Speaking",
+      "Agnes_Thinking",
+      "Agnes_Confused",
+      "Agnes_Happy",
+      "Agnes_Smug",
+      "Agnes_Angry",
+      "Agnes_Nervous",
+      "Agnes_Shock",
+      "Agnes_Sad",
+      "Agnes_Suspicious",
+      "Agnes_Frustrated",
+      "Agnes_Pointing",
+      "Agnes_Slam",
+      "Agnes_Gavel",
+      "Agnes_LeanForward",
+      "Agnes_LeanBackward",
+      "Agnes_Celebrate",
+      "Agnes_Embarrassed"
+    ],
+    "morphs": [
+      "TalkOpen",
+      "SmileHide"
+    ],
+    "open_mouth_vertices": 222,
+    "lower_lip_strip": false
+  }
+}

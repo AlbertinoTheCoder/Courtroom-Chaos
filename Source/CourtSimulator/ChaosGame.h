@@ -35,6 +35,17 @@ private:
  UPROPERTY(Transient) TObjectPtr<UChaosAudioData> CourtAudio;
  UPROPERTY(Transient) TArray<TObjectPtr<UAudioComponent>> MusicStems;
  UPROPERTY(Transient) TObjectPtr<UAudioComponent> SpeechAudio;
+ UPROPERTY(Transient) TObjectPtr<USoundWave> ActiveSpeechSound;
+ UPROPERTY(Transient) TMap<FName,TObjectPtr<USkeletalMesh>> DefaultCastModels;
+ const TArray<float>* ActiveEnvelope=nullptr;
+ float ActiveSpeechDuration=0,SpeechReveal=0;
+ bool SpeechTakeFinished=false,TextRevealOverride=false,HavePlaybackPercent=false;
+ int32 NaturalSpeechEnds=0,SpeechPace=1;
+ void SpeechFinished(UAudioComponent* Component);
+ void SpeechPlayback(const UAudioComponent* Component,const USoundWave* Wave,float Percent);
+ bool SpeechBusy() const;
+ FString DisplaySpeech(const FString& Value) const;
+ void ApplyCaseModels();
  const FChaosSpeechSequence* SpeechSequence=nullptr;
  FString SpeechKey,SpeechSpeaker;
  int32 SpeechTake=0;

@@ -12,6 +12,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/Texture2D.h"
 #include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/AudioComponent.h"
@@ -61,6 +62,7 @@ void AChaosHUD::BeginPlay(){
  const TArray<FName> Names={TEXT("Oliver"),TEXT("Victor"),TEXT("Bumble"),TEXT("Benny"),TEXT("Milo"),TEXT("Brick")};
  for(TActorIterator<AActor> It(GetWorld());It;++It){for(const FName& N:Names)if(It->ActorHasTag(N)){Cast.Add(N,*It);CastRest.Add(N,It->GetActorTransform());}if(It->ActorHasTag(TEXT("AnimatedGavel")))GavelActor=::Cast<AStaticMeshActor>(*It);if(It->ActorHasTag(TEXT("EvidenceExhibit")))ExhibitActor=::Cast<AStaticMeshActor>(*It);}
  for(TActorIterator<ACameraActor> It(GetWorld());It;++It)for(const FName& Tag:It->Tags){Cameras.Add(Tag,*It);CameraRest.Add(Tag,It->GetActorTransform());}
+ for(const auto& Pair:Cast)if(auto Actor=Pair.Value.Get())if(auto C=Actor->FindComponentByClass<USkeletalMeshComponent>())DefaultCastModels.Add(Pair.Key,C->GetSkeletalMeshAsset());
  if(ExhibitActor)ExhibitActor->SetActorHiddenInGame(true);
  LoadSettings();CourtAudio=LoadObject<UChaosAudioData>(nullptr,TEXT("/Game/Audio/DA_CourtAudio.DA_CourtAudio"));
  if(CourtAudio)for(auto Sound:CourtAudio->MusicLayers)MusicStems.Add(UGameplayStatics::SpawnSound2D(this,Sound,.0001f,1,0,nullptr,false,false));
@@ -81,7 +83,7 @@ FChaosLine AChaosHUD::CurrentLine()const{
 }
 void AChaosHUD::Tick(float D){
  Super::Tick(D);if(!Case||!Error.IsEmpty())return;
- const auto Line=CurrentLine();if(Line.Text!=LastText){LastText=Line.Text;LineElapsed=0;Record(Line.Speaker+TEXT(": ")+Line.Text);}else LineElapsed+=D;
+ const auto Line=CurrentLine();if(Line.Text!=LastText){LastText=Line.Text;LineElapsed=0;TextRevealOverride=false;Record(Line.Speaker+TEXT(": ")+Line.Text);}else LineElapsed+=D;
  if(Phase>=0&&Screen!=EChaosScreen::Settings&&Screen!=EChaosScreen::Results)CaseSeconds+=D;
  if(Impact>0){float Before=Impact;Impact=FMath::Max(0.f,Impact-D);float Elapsed=3.2f-Impact;if(!ImpactFired&&(Elapsed>=.72f||ReducedMotion)){ImpactFired=true;Shake=ReducedMotion?0:.24f;PaperTime=.8f;Sound(TEXT("DeskHit"),.9f);Sound(TEXT("Objection"),.7f);}if(Before>0&&Impact==0&&VerdictPending){VerdictPending=false;StartGavel();}}
  if(GavelTime>0){GavelTime=FMath::Max(0.f,GavelTime-D);if(!GavelFired&&2.2f-GavelTime>=.72f){GavelFired=true;Shake=ReducedMotion?0:.18f;Sound(TEXT("GavelHit"),.85f);}}
@@ -90,9 +92,9 @@ void AChaosHUD::Tick(float D){
  UpdateProps(D);AnimateCast();SelectCamera();
 }
 void AChaosHUD::SetScreen(EChaosScreen V){Screen=V;FocusIndex=-1;Buttons.Empty();PreviousButtons.Empty();if(ExhibitActor)ExhibitActor->SetActorHiddenInGame(V!=EChaosScreen::Inspect);}
-void AChaosHUD::Record(const FString& S){if(S.IsEmpty()||S.EndsWith(TEXT(": ")))return;if(History.IsEmpty()||History.Last()!=S){History.Add(S);if(History.Num()>100)History.RemoveAt(0);}}
+void AChaosHUD::Record(const FString& Raw){const FString S=DisplaySpeech(Raw);if(S.IsEmpty()||S.EndsWith(TEXT(": ")))return;if(History.IsEmpty()||History.Last()!=S){History.Add(S);if(History.Num()>100)History.RemoveAt(0);}}
 bool AChaosHUD::SelectCase(int32 Index){
- if(!CaseLibrary.IsValidIndex(Index))return false;StopSpeech();ActiveCase=Index;Case=CaseLibrary[Index];Error.Empty();CaseFailed=false;Resolution=false;Impact=GavelTime=0;Feedback.Empty();return Case->Validate(Error);
+ if(!CaseLibrary.IsValidIndex(Index))return false;StopSpeech();ActiveCase=Index;Case=CaseLibrary[Index];ApplyCaseModels();Error.Empty();CaseFailed=false;Resolution=false;Impact=GavelTime=0;Feedback.Empty();return Case->Validate(Error);
 }
 void AChaosHUD::LoseLife(const FString& Reason){
  StopSpeech();++Wrong;Credibility=FMath::Max(0,Credibility-1);ChaosPulse=FMath::Min(1.f,ChaosPulse+.25f);Feedback=Reason;Record(Reason);Sound(TEXT("Wrong"),.45f);
@@ -101,7 +103,7 @@ void AChaosHUD::LoseLife(const FString& Reason){
 void AChaosHUD::BeginCase(){StopSpeech();CaseFailed=false;CourtHeat=ChaosPulse=0;Completed=false;Phase=0;Statement=0;Dialogue=0;Selected=0;Credibility=3;Correct=Wrong=Presses=Inspections=0;CaseSeconds=0;Resolution=false;ResolutionStage=-1;Impact=GavelTime=0;VerdictPending=false;Inspected.Empty();History.Empty();ClosingSolved=false;Feedback.Empty();LastText.Empty();SetScreen(EChaosScreen::Play);Save();}
 void AChaosHUD::Next(){
  if(CaseFailed)return;
- if(Impact>0){Action(TEXT("skip"));return;}const auto L=CurrentLine();if(!InstantText&&LineElapsed*RevealSpeed<L.Text.Len()){LineElapsed=10000;return;}
+ if(Impact>0){Action(TEXT("skip"));return;}if(GavelTime>0){GavelTime=0;return;}const auto L=CurrentLine();if(!InstantText&&!TextRevealOverride&&((SpeechBusy()&&SpeechReveal<1)||(!SpeechBusy()&&LineElapsed*RevealSpeed<L.Text.Len()))){TextRevealOverride=true;LineElapsed=10000;return;}if(SpeechBusy())return;
  Record(L.Speaker+TEXT(": ")+L.Text);Feedback.Empty();
  if(Resolution){++Dialogue;if(Case->Stages[ResolutionStage].Resolution.IsValidIndex(Dialogue))return;FinishResolution();return;}
  if(Phase==0||Phase==1){++Dialogue;const auto& A=Phase==0?Case->Consultation:Case->Opening;if(!A.IsValidIndex(Dialogue)){++Phase;Dialogue=0;if(Phase==1)StartGavel();}Save();return;}
@@ -135,8 +137,8 @@ bool AChaosHUD::ReadTrial(const FString& Path){
  History.Empty();const TArray<TSharedPtr<FJsonValue>>* A;if(J->TryGetArrayField(TEXT("history"),A))for(const auto& V:*A){FString S;if(V->TryGetString(S)&&S.Len()<2000&&History.Num()<100)History.Add(S);}
  Inspected.Empty();if(J->TryGetArrayField(TEXT("inspected"),A))for(const auto& V:*A){FString S;if(V->TryGetString(S))for(const auto& E:Case->Evidence)if(E.Id==FName(S))Inspected.Add(E.Id);}Inspections=Inspected.Num();Impact=0;GavelTime=0;LastText.Empty();Feedback.Empty();if(!Unlocked(Selected))Selected=0;SetScreen(CaseFailed?EChaosScreen::Failed:Completed&&Phase==FinalPhase()?EChaosScreen::Results:Phase==FinalPhase()&&!Resolution&&!ClosingSolved?EChaosScreen::Closing:EChaosScreen::Play);if(!CaseFailed&&Phase==FinalPhase()&&!Completed&&!Resolution&&ClosingSolved)StartGavel();return true;
 }
-void AChaosHUD::SaveSettings(){auto J=MakeShared<FJsonObject>();J->SetNumberField(TEXT("master"),MasterVolume);J->SetNumberField(TEXT("music"),MusicVolume);J->SetNumberField(TEXT("effects"),EffectsVolume);J->SetNumberField(TEXT("voice"),VoiceVolume);J->SetNumberField(TEXT("text_size"),TextScale);J->SetNumberField(TEXT("reveal"),RevealSpeed);J->SetNumberField(TEXT("quality"),Quality);J->SetBoolField(TEXT("instant"),InstantText);J->SetBoolField(TEXT("motion"),ReducedMotion);J->SetBoolField(TEXT("contrast"),HighContrast);Court::Write(Court::File(TEXT("Preferences.json")),J);}
-void AChaosHUD::LoadSettings(){TSharedPtr<FJsonObject> J;if(Court::Read(Court::File(TEXT("Preferences.json")),J)){MasterVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("master"),.8)),0.f,1.f);MusicVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("music"),.4)),0.f,1.f);EffectsVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("effects"),.8)),0.f,1.f);VoiceVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("voice"),.9)),0.f,1.f);TextScale=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("text_size"),1)),.9f,1.3f);RevealSpeed=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("reveal"),42)),20.f,80.f);Quality=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("quality"),2)),0,3);InstantText=Court::Boolean(J,TEXT("instant"));ReducedMotion=Court::Boolean(J,TEXT("motion"));HighContrast=Court::Boolean(J,TEXT("contrast"));}if(auto Settings=GEngine->GetGameUserSettings()){Settings->SetOverallScalabilityLevel(Quality);Settings->SetFrameRateLimit(120);Settings->ApplyNonResolutionSettings();}}
+void AChaosHUD::SaveSettings(){auto J=MakeShared<FJsonObject>();J->SetNumberField(TEXT("master"),MasterVolume);J->SetNumberField(TEXT("music"),MusicVolume);J->SetNumberField(TEXT("effects"),EffectsVolume);J->SetNumberField(TEXT("voice"),VoiceVolume);J->SetBoolField(TEXT("speech_sync"),true);J->SetNumberField(TEXT("text_size"),TextScale);J->SetNumberField(TEXT("reveal"),RevealSpeed);J->SetNumberField(TEXT("quality"),Quality);J->SetBoolField(TEXT("instant"),InstantText);J->SetBoolField(TEXT("motion"),ReducedMotion);J->SetBoolField(TEXT("contrast"),HighContrast);Court::Write(Court::File(TEXT("Preferences.json")),J);}
+void AChaosHUD::LoadSettings(){bool MigrateSpeechSync=false;TSharedPtr<FJsonObject> J;if(Court::Read(Court::File(TEXT("Preferences.json")),J)){MasterVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("master"),.8)),0.f,1.f);MusicVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("music"),.4)),0.f,1.f);EffectsVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("effects"),.8)),0.f,1.f);VoiceVolume=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("voice"),.9)),0.f,1.f);TextScale=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("text_size"),1)),.9f,1.3f);RevealSpeed=FMath::Clamp(static_cast<float>(Court::Number(J,TEXT("reveal"),42)),20.f,80.f);Quality=FMath::Clamp(static_cast<int32>(Court::Number(J,TEXT("quality"),2)),0,3);MigrateSpeechSync=!Court::Boolean(J,TEXT("speech_sync"));InstantText=MigrateSpeechSync?false:Court::Boolean(J,TEXT("instant"));ReducedMotion=Court::Boolean(J,TEXT("motion"));HighContrast=Court::Boolean(J,TEXT("contrast"));}if(auto Settings=GEngine->GetGameUserSettings()){Settings->SetOverallScalabilityLevel(Quality);Settings->SetFrameRateLimit(120);Settings->ApplyNonResolutionSettings();}if(MigrateSpeechSync)SaveSettings();}
 void AChaosHUD::AnimateCast(){
  const auto L=CurrentLine();const bool Talking=(Screen==EChaosScreen::Play||Screen==EChaosScreen::Closing)&&Phase>=0&&!SpeechPaused&&!SpeechSpeaker.IsEmpty();
  for(auto& Pair:Cast){auto Actor=Pair.Value.Get();if(!Actor)continue;auto C=Actor->FindComponentByClass<USkeletalMeshComponent>();if(!C)continue;const FString Name=Pair.Key.ToString();FString Mood=TEXT("Listening");
@@ -171,7 +173,7 @@ void AChaosHUD::SelectCamera(){
  FName Shot=Phase>=0?ForSpeaker(!SpeechSpeaker.IsEmpty()&&!SpeechPaused?SpeechSpeaker:CurrentLine().Speaker):FName(TEXT("Wide"));if(Screen==EChaosScreen::Record||Screen==EChaosScreen::Cases||Screen==EChaosScreen::Settings||Screen==EChaosScreen::Credits||Screen==EChaosScreen::History||Screen==EChaosScreen::Results)Shot=TEXT("Wide");if(Screen==EChaosScreen::Inspect)Shot=Case->Evidence[Selected].Exhibit?TEXT("Inspect"):TEXT("Wide");
  if(GavelTime>0)Shot=TEXT("Judge");if(Impact>0){if(3.2f-Impact<1.7f)Shot=TEXT("Defense");else if(Case->Stages.IsValidIndex(ResolutionStage))Shot=ForSpeaker(Case->Stages[ResolutionStage].Speaker);}
  for(auto& Pair:Cameras)if(auto Camera=Pair.Value.Get())if(CameraRest.Contains(Pair.Key))Camera->SetActorTransform(CameraRest[Pair.Key]);
- if(auto Camera=Cameras.FindRef(Shot).Get()){auto P=GetOwningPlayerController();if(P->GetViewTarget()!=Camera)P->SetViewTargetWithBlend(Camera,ReducedMotion?0:.25f);if(Shake>0&&!ReducedMotion){auto R=Camera->GetActorRotation();R.Roll+=FMath::Sin(GetWorld()->GetTimeSeconds()*85)*Shake*3;R.Pitch+=FMath::Cos(GetWorld()->GetTimeSeconds()*65)*Shake;Camera->SetActorRotation(R);}}
+ if(auto Camera=Cameras.FindRef(Shot).Get()){if(Shot==TEXT("Client")){Camera->GetCameraComponent()->SetFieldOfView(ActiveCase==1?64:60);if(ActiveCase==1)if(auto Actor=Cast.FindRef(TEXT("Benny")).Get())Camera->SetActorRotation((Actor->GetActorLocation()+FVector(0,0,185)-Camera->GetActorLocation()).Rotation());}auto P=GetOwningPlayerController();if(P->GetViewTarget()!=Camera)P->SetViewTargetWithBlend(Camera,ReducedMotion?0:.25f);if(Shake>0&&!ReducedMotion){auto R=Camera->GetActorRotation();R.Roll+=FMath::Sin(GetWorld()->GetTimeSeconds()*85)*Shake*3;R.Pitch+=FMath::Cos(GetWorld()->GetTimeSeconds()*65)*Shake;Camera->SetActorRotation(R);}}
 }
 void AChaosHUD::Action(FString Id){
  if(CaseFailed&&Id!=TEXT("restart")&&Id!=TEXT("menu")&&Id!=TEXT("quit")&&Id!=TEXT("cases")&&Id!=TEXT("back")&&!Id.StartsWith(TEXT("case_")))return;
@@ -179,6 +181,7 @@ void AChaosHUD::Action(FString Id){
  if(Id.StartsWith(TEXT("case_"))){const int32 I=FCString::Atoi(*Id.Mid(5));if(SelectCase(I)){const FString Slot=Court::File(TEXT("Trial_")+Case->CaseId.ToString()+TEXT(".json"));if(IFileManager::Get().FileExists(*Slot)){if(!ReadTrial(Slot))BeginCase();}else{TSharedPtr<FJsonObject> Legacy;if(Court::Read(Court::File(TEXT("Trial.json")),Legacy)&&Court::String(Legacy,TEXT("case"))==Case->CaseId.ToString()){if(!Load())BeginCase();}else BeginCase();}}return;}
  if(!Case||!Error.IsEmpty()){if(Id==TEXT("quit"))GetOwningPlayerController()->ConsoleCommand(TEXT("quit"));return;}
  if(Id!=TEXT("rotate_l")&&Id!=TEXT("rotate_r"))Sound(TEXT("UITick"),.22f);
+ if(Id==TEXT("skip_voice")){if(SpeechSequence){if(IsValid(SpeechAudio)){SpeechAudio->OnAudioFinishedNative.RemoveAll(this);SpeechAudio->OnAudioPlaybackPercentNative.RemoveAll(this);SpeechAudio->Stop();}SpeechTake=SpeechSequence->Takes.Num();SpeechSpeaker.Empty();SpeechReveal=1;MouthAmount=0;TextRevealOverride=true;}return;}
  if(Id==TEXT("skip")){Impact=0;ImpactFired=true;Shake=PaperTime=0;if(VerdictPending){VerdictPending=false;StartGavel();}return;}
  if(Id==TEXT("start")){Completed=false;BeginCase();return;}
  if(Id==TEXT("load")){Load();return;}
@@ -210,7 +213,7 @@ void AChaosHUD::Action(FString Id){
  if(Id==TEXT("rotate_l")){ExhibitYaw-=30;return;}if(Id==TEXT("rotate_r")){ExhibitYaw+=30;return;}if(Id==TEXT("zoom_in")){ExhibitZoom=FMath::Min(1.4f,ExhibitZoom+.1f);return;}if(Id==TEXT("zoom_out")){ExhibitZoom=FMath::Max(.6f,ExhibitZoom-.1f);return;}
  if(Id.StartsWith(TEXT("conclusion_"))&&Screen==EChaosScreen::Closing){int32 Choice=FCString::Atoi(*Id.Mid(11));if(Choice==Case->CorrectConclusion){ClosingSolved=true;Dialogue=0;Record(TEXT("CLOSING ARGUMENT: ")+Case->Conclusions[Choice]);Feedback.Empty();SetScreen(EChaosScreen::Play);StartGavel();Save();}else{LoseLife(TEXT("BUMBLE: The record supports a timeline, counsel. Avoid inventing a crime."));}return;}
  if(Id==TEXT("next")){Next();return;}
- if(Id==TEXT("prev")){if(Stage()&&!Resolution&&Impact<=0){Statement=(Statement+Stage()->Statements.Num()-1)%Stage()->Statements.Num();Feedback.Empty();Save();}return;}
+ if(Id==TEXT("prev")){if(SpeechBusy()){TextRevealOverride=true;return;}if(Stage()&&!Resolution&&Impact<=0){Statement=(Statement+Stage()->Statements.Num()-1)%Stage()->Statements.Num();Feedback.Empty();Save();}return;}
  if(Id==TEXT("press")){if(const auto S=Stage())if(!Resolution&&Impact<=0){StopSpeech();ChaosPulse=FMath::Min(1.f,ChaosPulse+.14f);Feedback=S->Statements[Statement].Press;++Presses;Record(TEXT("PRESS: ")+Feedback);LineElapsed=0;Sound(TEXT("Press"),.35f);Save();}return;}
  if(Id==TEXT("present")){const auto S=Stage();if(!S||Resolution||Impact>0||!Unlocked(Selected))return;SetScreen(EChaosScreen::Play);
   if(S->Contradiction==Statement&&S->Evidence==Case->Evidence[Selected].Id){ResolutionStage=StageIndex();Resolution=true;Dialogue=0;++Correct;++Phase;Statement=0;StartObjection();Record(TEXT("CONTRADICTION: ")+Case->Evidence[Selected].Title);}
@@ -227,7 +230,7 @@ void AChaosHUD::Panel(float X,float Y,float W,float H,FLinearColor C){DrawRect(C
 void AChaosHUD::Texture(UTexture2D* A,float X,float Y,float W,float H,float Alpha){if(A)DrawTexture(A,X*SX,Y*SY,W*SX,H*SY,0,0,1,1,FLinearColor(1,1,1,Alpha),BLEND_Translucent);}
 void AChaosHUD::Sprite(const FString& Name,float X,float Y,float W,float H,float Alpha,float Rotation){if(!Textures.Contains(Name))Textures.Add(Name,LoadObject<UTexture2D>(nullptr,*(TEXT("/Game/UI/")+Name+TEXT(".")+Name)));if(auto T=Textures[Name])DrawTexture(T,X*SX,Y*SY,W*SX,H*SY,0,0,1,1,FLinearColor(1,1,1,Alpha),BLEND_Translucent,1,false,Rotation,FVector2D(.5f,.5f));}
 FString AChaosHUD::Wrap(const FString& S,float Width,float Size){FString Out;TArray<FString> Paragraphs;S.ParseIntoArray(Paragraphs,TEXT("\n"),false);for(int32 I=0;I<Paragraphs.Num();++I){TArray<FString> Words;Paragraphs[I].ParseIntoArrayWS(Words);FString Line;for(const auto& W:Words){FString Candidate=Line.IsEmpty()?W:Line+TEXT(" ")+W;const auto Measure=FSlateApplication::Get().GetRenderer()->GetFontMeasureService();const float TW=Measure->Measure(FStringView(Candidate),Court::UIFont(Size,FMath::Min(SX,SY),RuntimeUIFont)).X;if(TW>Width*SX&&!Line.IsEmpty()){Out+=Line+TEXT("\n");Line=W;}else Line=Candidate;}Out+=Line;if(I<Paragraphs.Num()-1)Out+=TEXT("\n");}return Out;}
-void AChaosHUD::Wrapped(const FString& S,float X,float Y,float Width,float Size,FLinearColor C,bool Reveal){FString W=Wrap(S,Width,Size);if(Reveal&&!InstantText)W=W.Left(FMath::Clamp(FMath::FloorToInt(LineElapsed*RevealSpeed),0,W.Len()));Label(W,X,Y,Size,C);}
+void AChaosHUD::Wrapped(const FString& S,float X,float Y,float Width,float Size,FLinearColor C,bool Reveal){FString W=Wrap(S,Width,Size);if(Reveal&&!InstantText&&!TextRevealOverride){const float Progress=SpeechSequence?SpeechReveal:FMath::Clamp(LineElapsed*RevealSpeed/FMath::Max(1,W.Len()),0.f,1.f);W=W.Left(FMath::Clamp(FMath::FloorToInt(Progress*W.Len()),0,W.Len()));}Label(W,X,Y,Size,C);}
 void AChaosHUD::Button(const FString& Id,const FString& Caption,float X,float Y,float W,bool Enabled){
  float MX=0,MY=0;GetOwningPlayerController()->GetMousePosition(MX,MY);const bool Hover=MX>=X*SX&&MX<=(X+W)*SX&&MY>=Y*SY&&MY<=(Y+46)*SY;const bool Focus=FocusIndex==Buttons.Num();FString Skin=Id==TEXT("start")||Id==TEXT("present")||Id==TEXT("press")?TEXT("RedButton"):Id==TEXT("evidence")||Id==TEXT("inspect")||Id==TEXT("detail")?TEXT("TealButton"):TEXT("InkButton");Sprite(Skin,X,Y-(Enabled&&(Hover||Focus)?2:0),W,50,Enabled?1:.4f);Label(Caption,X+16,Y+13-(Enabled&&(Hover||Focus)?2:0),19,Enabled?Court::Cream:FLinearColor(.35f,.35f,.35f));if(Enabled){if(Focus)DrawRect(Court::Gold,(X+6)*SX,(Y+6)*SY,3*SX,32*SY);Buttons.Add(Id);AddHitBox(FVector2D(X*SX,Y*SY),FVector2D(W*SX,46*SY),FName(Id),true);}}
 void AChaosHUD::DrawHUD(){
@@ -256,7 +259,7 @@ void AChaosHUD::DrawHUD(){
  case EChaosScreen::Closing:
   Sprite(TEXT("EvidencePanel"),55,160,1170,505);Label(TEXT("YOUR CLOSING ARGUMENT"),85,195,32,Court::Ink);Wrapped(Case->ClosingPrompt,85,255,1080,25*TextScale,Court::Ink);for(int I=0;I<Case->Conclusions.Num();++I)Button(TEXT("conclusion_")+FString::FromInt(I),Case->Conclusions[I],85,350+I*70,1090);if(!Feedback.IsEmpty())Wrapped(Feedback,85,585,1090,19,Court::Red);Button(TEXT("history"),TEXT("REVIEW TRANSCRIPT"),85,610,360);Button(TEXT("evidence"),TEXT("REVIEW EVIDENCE"),475,610,360);break;
  case EChaosScreen::Credits:
-  Sprite(TEXT("EvidencePanel"),55,145,1170,540);Label(TEXT("THE PEOPLE VS. BORING COURTROOMS"),85,175,30,Court::Ink);Wrapped(TEXT("An original legal comedy.\nOliver Objection / Victor Vain / Judge Bumble\nBenny Buns / Milo Mopps / Officer Brick\n\nOriginal characters, story, graphics and music created for Courtroom Chaos.\nPowered by Unreal Engine. Art made with Blender.\nCharacter voices generated locally with Kokoro 82M."),85,245,520,23,Court::Ink);Label(TEXT("YOUR COURTROOM CONTROLS"),670,240,23,Court::Red);Wrapped(TEXT("Mouse / click buttons\nSpace / reveal text, continue, skip a cinematic\nLeft + Right / review testimony\nQ / press the witness\nE / court record     H / dialogue history\nA + D / rotate an inspected object\nMouse wheel / inspection zoom\nTab + Enter / keyboard button navigation\nEscape / back, or save and return to menu"),670,285,500,20,Court::Ink);Button(TEXT("back"),TEXT("BACK"),85,605,260);break;
+  Sprite(TEXT("EvidencePanel"),55,145,1170,540);Label(TEXT("THE PEOPLE VS. BORING COURTROOMS"),85,175,30,Court::Ink);Wrapped(TEXT("An original legal comedy.\nOliver Objection / Victor Vain / Judge Bumble\nBenny Buns / Milo Mopps / Officer Brick\nRenzo Roux / Pip Sparks\nNora Notes / Agnes Penny\n\nOriginal characters, story, graphics and music created for Courtroom Chaos.\nPowered by Unreal Engine. Art made with Blender.\nCharacter voices generated locally with Kokoro 82M."),85,245,520,21,Court::Ink);Label(TEXT("YOUR COURTROOM CONTROLS"),670,240,23,Court::Red);Wrapped(TEXT("Mouse / click buttons\nSpace / reveal text, continue, skip a cinematic\nLeft + Right / review testimony\nQ / press the witness\nE / court record     H / dialogue history\nA + D / rotate an inspected object\nMouse wheel / inspection zoom\nTab + Enter / keyboard button navigation\nEscape / back, or save and return to menu"),670,285,500,20,Court::Ink);Button(TEXT("back"),TEXT("BACK"),85,605,260);break;
  }
  if(Impact>0){float E=3.2f-Impact;if((E>=.68f&&E<1.8f)||ReducedMotion){if(!ReducedMotion)for(int I=0;I<20;++I){float A=I*2*PI/20;float X=640+FMath::Cos(A)*720,Y=330+FMath::Sin(A)*430;DrawLine(X*SX,Y*SY,(640+FMath::Cos(A)*470)*SX,(330+FMath::Sin(A)*135)*SY,FLinearColor(.9f,.65f,.2f,.55f),2*SX);}Sprite(TEXT("Objection"),180,200,920,220);}Button(TEXT("skip"),TEXT("SKIP / SPACE"),1030,128,210);}
  if(PaperTime>0&&!ReducedMotion){float E=.8f-PaperTime;Sprite(TEXT("Dust"),470-70*E,405-30*E,330+180*E,85+40*E,PaperTime*.5f);for(int I=0;I<5;++I){float X=530+I*45+(I-2)*130*E,Y=440-(140+I*20)*E+220*E*E;Sprite(TEXT("Paper"),X,Y,40,52,PaperTime/.8f,(I-2)*25+E*130);}}
@@ -268,15 +271,16 @@ void AChaosHUD::DrawMenu(){
 void AChaosHUD::DrawTrial(){
  const auto L=CurrentLine();if(Stage()&&!Resolution){Sprite(TEXT("NameTab"),450,110,380,46);Label(TEXT("CROSS-EXAMINATION"),482,123,21,Court::Cream);}
  Sprite(TEXT("Dialogue"),35,495,1210,208);Sprite(TEXT("NameTab"),57,468,420,48);
- FString Speaker=L.Speaker==TEXT("Oliver")?TEXT("OLIVER OBJECTION / DEFENSE"):L.Speaker==TEXT("Victor")?TEXT("VICTOR VAIN / PROSECUTION"):L.Speaker==TEXT("Benny")?TEXT("BENNY BUNS / YOUR CLIENT"):L.Speaker==TEXT("Milo")?TEXT("MILO MOPPS / MAINTENANCE"):L.Speaker==TEXT("Brick")?TEXT("OFFICER BRICK / BAILIFF"):TEXT("THE HONORABLE JUDGE BUMBLE");Label(Speaker,78,482,19,Court::Cream);
+ FString Speaker=L.Speaker==TEXT("Oliver")?TEXT("OLIVER OBJECTION / DEFENSE"):L.Speaker==TEXT("Victor")?TEXT("VICTOR VAIN / PROSECUTION"):L.Speaker==TEXT("Benny")?TEXT("BENNY BUNS / YOUR CLIENT"):L.Speaker==TEXT("Milo")?TEXT("MILO MOPPS / MAINTENANCE"):L.Speaker==TEXT("Brick")?TEXT("OFFICER BRICK / BAILIFF"):TEXT("THE HONORABLE JUDGE BUMBLE");if(Case->SpeakerNames.Contains(L.Speaker))Speaker=(Case->SpeakerNames[L.Speaker]+TEXT(" / ")+Case->SpeakerRoles.FindRef(L.Speaker)).ToUpper();Label(Speaker,78,482,19,Court::Cream);
  if(Stage()&&!Resolution)Label(FString::Printf(TEXT("STATEMENT %02d / %02d"),Statement+1,Stage()->Statements.Num()),995,512,14,Court::Ink);
- Wrapped(L.Text,70,535,1130,25*TextScale,Court::Ink,true);
- if(!Feedback.IsEmpty())Wrapped(Feedback,70,598,1110,18,Court::Teal);
+ Wrapped(L.Text,70,535,1130,25*TextScale,Court::Ink,Feedback.IsEmpty());
+ if(!Feedback.IsEmpty())Wrapped(DisplaySpeech(Feedback),70,598,1110,18,Court::Teal,true);
  if(Stage()){Sprite(TEXT("InkButton"),20,115,325,37);Label(CourtHeat<.25f?TEXT("COURT TEMPER / ORDERLY"):CourtHeat<.5f?TEXT("COURT TEMPER / RESTLESS"):CourtHeat<.78f?TEXT("COURT TEMPER / HEATED"):TEXT("COURT TEMPER / MAYHEM"),36,125,15,Court::Cream);}
  if(Phase==FinalPhase()&&!Resolution&&Dialogue>=1&&LineElapsed<2)Sprite(TEXT("Verdict"),275,210,730,190,FMath::Min(1.f,2-LineElapsed));
  if(Impact>0)return;
+ if(SpeechBusy()&&!SpeechPaused&&GavelTime<=0)Button(TEXT("skip_voice"),TEXT("SKIP VOICE"),1030,128,210);
  if(Stage()&&!Resolution){Button(TEXT("prev"),TEXT("<"),66,637,65);Button(TEXT("next"),TEXT(">"),141,637,65);Button(TEXT("history"),TEXT("HISTORY [H]"),225,637,185);Button(TEXT("press"),TEXT("PRESS [Q]"),660,637,215);Button(TEXT("evidence"),TEXT("RECORD [E]"),895,637,310);}
- else{Button(TEXT("history"),TEXT("HISTORY [H]"),70,637,220);Button(TEXT("next"),GavelTime>0?TEXT("SKIP GAVEL / SPACE"):TEXT("CONTINUE / SPACE  >"),850,637,355);}
+ else{Button(TEXT("history"),TEXT("HISTORY [H]"),70,637,220);Button(TEXT("next"),GavelTime>0?TEXT("SKIP GAVEL / SPACE"):SpeechBusy()?TEXT("LISTENING..."):TEXT("CONTINUE / SPACE  >"),850,637,355);}
 }
 void AChaosHUD::DrawRecord(){
  Sprite(TEXT("EvidencePanel"),35,125,1210,550);Label(TEXT("THE COURT RECORD"),65,151,31,Court::Ink);Label(TEXT("INSPECT THE FACTS. THEN MAKE YOUR CASE."),65,198,15,Court::Red);
@@ -293,8 +297,8 @@ void AChaosHUD::DrawSettings(){
  for(int I=0;I<4;++I){float Y=230+I*58;Label(AudioNames[I],85,Y+14,21,Court::Ink);Label(FString::Printf(TEXT("%d%%"),FMath::RoundToInt(Values[I]*100)),310,Y+14,21,Court::Teal);Button(Keys[I]+TEXT("_less"),TEXT("-"),405,Y,60);Button(Keys[I]+TEXT("_more"),TEXT("+"),480,Y,60);}
  const TCHAR* QualityNames[]={TEXT("LOW"),TEXT("MEDIUM"),TEXT("HIGH"),TEXT("EPIC")};Button(TEXT("quality"),FString(TEXT("QUALITY: "))+QualityNames[Quality],85,470,455);Button(TEXT("window"),TEXT("WINDOWED / BORDERLESS"),85,535,455);
  Label(FString::Printf(TEXT("TEXT SIZE: %d%%"),FMath::RoundToInt(TextScale*100)),660,254,21,Court::Ink);Button(TEXT("text_less"),TEXT("-"),1040,240,60);Button(TEXT("text_more"),TEXT("+"),1115,240,60);
- Button(TEXT("speed"),FString::Printf(TEXT("TEXT SPEED: %s"),RevealSpeed<40?TEXT("RELAXED"):RevealSpeed<60?TEXT("NORMAL"):TEXT("QUICK")),660,310,515);
- Button(TEXT("instant"),InstantText?TEXT("INSTANT TEXT: ON"):TEXT("INSTANT TEXT: OFF"),660,380,515);Button(TEXT("motion"),ReducedMotion?TEXT("REDUCED MOTION: ON"):TEXT("REDUCED MOTION: OFF"),660,450,515);Button(TEXT("contrast"),HighContrast?TEXT("HIGH CONTRAST: ON"):TEXT("HIGH CONTRAST: OFF"),660,520,515);Button(TEXT("back"),TEXT("SAVE SETTINGS + BACK"),660,600,515);Label(TEXT("Preferences are saved automatically."),85,620,18,Court::Teal);
+ Button(TEXT("speed"),FString::Printf(TEXT("VOICE + TEXT PACE: %s"),RevealSpeed<40?TEXT("RELAXED"):RevealSpeed<60?TEXT("NORMAL"):TEXT("QUICK")),660,310,515);
+ Button(TEXT("instant"),InstantText?TEXT("INSTANT TEXT: ON / VOICE CONTINUES"):TEXT("INSTANT TEXT: OFF / SYNCED TO VOICE"),660,380,515);Button(TEXT("motion"),ReducedMotion?TEXT("REDUCED MOTION: ON"):TEXT("REDUCED MOTION: OFF"),660,450,515);Button(TEXT("contrast"),HighContrast?TEXT("HIGH CONTRAST: ON"):TEXT("HIGH CONTRAST: OFF"),660,520,515);Button(TEXT("back"),TEXT("SAVE SETTINGS + BACK"),660,600,515);Label(TEXT("Preferences are saved automatically."),85,620,18,Court::Teal);
 }
 void AChaosHUD::DrawHistory(){
  Sprite(TEXT("EvidencePanel"),55,140,1170,545);Label(TEXT("THE TRIAL TRANSCRIPT"),85,170,31,Court::Ink);Label(TEXT("LATEST ENTRIES FIRST"),85,215,14,Court::Red);
@@ -304,7 +308,7 @@ void AChaosHUD::DrawHistory(){
 }
 void AChaosHUD::DrawResults(){
  Sprite(TEXT("EvidencePanel"),55,145,1170,540);Sprite(TEXT("Verdict"),360,155,560,145);Label(Wrong==0?TEXT("FLAWLESS DEFENSE"):Wrong<3?TEXT("CERTIFIED OBJECTOR"):TEXT("JUSTICE SERVED. EVENTUALLY."),320,315,32,Court::Ink);
- const FString Summary=ActiveCase==0?TEXT("Benny carried mustard. Maintenance moved the gavel into storage before he arrived."):ActiveCase==1?TEXT("The urn and fog machine overloaded a shared circuit. Benny's battery equipment was isolated."):TEXT("Brick collected sealed C17 under policy. The deposit receipt and bank count account for all 480 pounds.");Wrapped(Summary,180,365,950,23,Court::Ink);
+ const FString Summary=ActiveCase==0?TEXT("Benny carried mustard. Maintenance moved the gavel into storage before he arrived."):ActiveCase==1?TEXT("The urn and fog machine overloaded a shared circuit. The caterer's battery equipment was isolated."):TEXT("Brick collected sealed C17 under policy. The deposit receipt and bank count account for all 480 pounds.");Wrapped(Summary,180,365,950,23,Court::Ink);
  Label(FString::Printf(TEXT("%d DEDUCTIONS     %d MISTAKES     %d PRESSES     %d CLUES INSPECTED"),Correct,Wrong,Presses,Inspections),180,437,19,Court::Teal);
  const TArray<bool> Earned={Correct>0,Inspections>0,Wrong==0,Presses>=3};const TArray<FString> Badges={TEXT("FIRST OBJECTION"),TEXT("SHARP EYE"),TEXT("STEADY NERVES"),TEXT("COURTROOM MENACE")};for(int I=0;I<4;++I){Sprite(TEXT("Badge")+FString::FromInt(I),180+I*250,478,48,48,Earned[I]?1:.25f);Label(Badges[I],235+I*250,492,14,Earned[I]?Court::Ink:FLinearColor(.4f,.4f,.4f));}
  Button(TEXT("start"),TEXT("PLAY AGAIN"),180,590,290);Button(TEXT("cases"),TEXT("CASE FILES"),490,590,290);Button(TEXT("menu"),TEXT("MAIN MENU"),800,590,290);
@@ -312,7 +316,7 @@ void AChaosHUD::DrawResults(){
 void AChaosHUD::RunTests(){
  bool OK=CaseLibrary.Num()==3;const bool OldInstant=InstantText;InstantText=true;
  for(int32 C=0;C<CaseLibrary.Num();++C){
-  OK&=SelectCase(C)&&ValidateAudio();BeginCase();int Guard=0;while(Phase<2&&++Guard<30)Next();OK&=Phase==2&&!Unlocked(Case->Evidence.Num()-1);
+  OK&=SelectCase(C)&&ValidateAudio();BeginCase();Phase=1;Dialogue=0;StartGavel();Next();OK&=GavelTime==0&&Dialogue==0;BeginCase();int Guard=0;while(Phase<2&&++Guard<30)Next();OK&=Phase==2&&!Unlocked(Case->Evidence.Num()-1);
   Action(TEXT("press"));OK&=Presses==1&&!Feedback.IsEmpty()&&Credibility==3;Selected=0;Statement=Stage()->Contradiction;while(Case->Evidence[Selected].Id==Stage()->Evidence)++Selected;Action(TEXT("present"));OK&=Wrong==1&&Credibility==2&&Phase==2;
   for(int I=0;I<Case->Stages.Num();++I){const auto S=Stage();if(!S){OK=false;break;}Statement=S->Contradiction;for(int E=0;E<Case->Evidence.Num();++E)if(Case->Evidence[E].Id==S->Evidence)Selected=E;Action(TEXT("present"));OK&=Correct==I+1;Action(TEXT("skip"));Guard=0;while(Resolution&&++Guard<20)Next();}
   Action(TEXT("conclusion_")+FString::FromInt(Case->CorrectConclusion));OK&=ClosingSolved&&Phase==FinalPhase();GavelTime=0;Guard=0;while(Screen!=EChaosScreen::Results&&++Guard<20)Next();OK&=Completed&&Screen==EChaosScreen::Results;Save();Phase=0;OK&=Load()&&Phase==FinalPhase()&&ActiveCase==C;
@@ -352,9 +356,10 @@ void AChaosHUD::RunVisualTests(){
  IFileManager::Get().MakeDirectory(*(FPaths::ProjectSavedDir()/TEXT("VisualQA")),true);
  auto Step=MakeShared<int32>(0);auto Timer=MakeShared<FTimerHandle>();
  GetWorld()->GetTimerManager().SetTimer(*Timer,[this,Step,Timer](){
-  const int32 View=(*Step)/2;
-  const TArray<FString> Names={TEXT("Settings"),TEXT("Witness"),TEXT("Record"),TEXT("Mustard3D"),TEXT("Document"),TEXT("Transcript"),TEXT("Closing"),TEXT("Gavel"),TEXT("Results"),TEXT("DeskSlam"),TEXT("GoldenGavel3D"),TEXT("Credits"),TEXT("Cases"),TEXT("Menu"),TEXT("BennyApron"),TEXT("BlackoutStart"),TEXT("BlackoutRecord"),TEXT("Battery3D"),TEXT("BlackoutClosing"),TEXT("BlackoutResults"),TEXT("CharityStart"),TEXT("CharityRecord"),TEXT("Envelope3D"),TEXT("CharityClosing"),TEXT("CharityResults"),TEXT("ThreeLifeFailure"),TEXT("OliverCloseup"),TEXT("VictorCloseup"),TEXT("BumbleCloseup"),TEXT("BrickCloseup")};
-  if(View>=Names.Num()){FPlatformMisc::RequestExit(false);return;}
+  const int32 Capture=(*Step)/2;
+  const TArray<FString> Names={TEXT("Settings"),TEXT("Witness"),TEXT("Record"),TEXT("Mustard3D"),TEXT("Document"),TEXT("Transcript"),TEXT("Closing"),TEXT("Gavel"),TEXT("Results"),TEXT("DeskSlam"),TEXT("GoldenGavel3D"),TEXT("Credits"),TEXT("Cases"),TEXT("Menu"),TEXT("BennyApron"),TEXT("BlackoutStart"),TEXT("BlackoutRecord"),TEXT("Battery3D"),TEXT("BlackoutClosing"),TEXT("BlackoutResults"),TEXT("CharityStart"),TEXT("CharityRecord"),TEXT("Envelope3D"),TEXT("CharityClosing"),TEXT("CharityResults"),TEXT("ThreeLifeFailure"),TEXT("OliverCloseup"),TEXT("VictorCloseup"),TEXT("BumbleCloseup"),TEXT("BrickCloseup"),TEXT("PipCloseup"),TEXT("AgnesCloseup"),TEXT("SyncedTextSlow")};
+  const bool Focused=FParse::Param(FCommandLine::Get(),TEXT("CourtSpeechVisualTest"));const TArray<int32> FocusViews={0,15,20,30,31,32};
+  if(Capture>=(Focused?FocusViews.Num():Names.Num())){FPlatformMisc::RequestExit(false);return;}const int32 View=Focused?FocusViews[Capture]:Capture;
   if((*Step)%2){FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("VisualQA")/(Names[View]+TEXT(".png")),false,false);}
   else{
    Impact=GavelTime=0;Resolution=false;Feedback.Empty();
@@ -389,6 +394,9 @@ void AChaosHUD::RunVisualTests(){
     case 27:Dialogue=1;break;
     case 28:Dialogue=0;break;
     case 29:Phase=3;Resolution=true;ResolutionStage=0;Dialogue=2;break;
+    case 30:SelectCase(1);BeginCase();Phase=2;Statement=1;break;
+    case 31:SelectCase(2);BeginCase();Phase=2;Statement=0;break;
+    case 32:SelectCase(1);BeginCase();InstantText=false;RevealSpeed=24;break;
    }
   }
   ++(*Step);
@@ -396,31 +404,56 @@ void AChaosHUD::RunVisualTests(){
 }
 
 
+FString AChaosHUD::DisplaySpeech(const FString& Value) const {
+ FString Result=Value;if(Case)for(const auto& Pair:Case->SpeakerNames){Result.ReplaceInline(*(Pair.Key+TEXT(":")),*(Pair.Value+TEXT(":")));Result.ReplaceInline(*(Pair.Key.ToUpper()+TEXT(":")),*(Pair.Value.ToUpper()+TEXT(":")));}return Result;
+}
+void AChaosHUD::ApplyCaseModels(){
+ for(const auto& Pair:DefaultCastModels)if(auto Actor=Cast.FindRef(Pair.Key).Get())if(auto C=Actor->FindComponentByClass<USkeletalMeshComponent>()){auto Mesh=Case->CastModels.Contains(Pair.Key)?Case->CastModels[Pair.Key]:Pair.Value;if(C->GetSkeletalMeshAsset()!=Mesh)C->SetSkeletalMesh(Mesh);}
+}
+bool AChaosHUD::SpeechBusy() const {
+ if(!Case||MasterVolume*VoiceVolume<=0||!SpeechSequence||!SpeechSequence->Takes.IsValidIndex(SpeechTake))return false;
+ const auto L=CurrentLine();const FString Key=Feedback.IsEmpty()?L.Speaker+TEXT("|")+L.Text:TEXT("Feedback|")+Feedback;
+ return SpeechKey==Key&&(!SpeechTakeFinished||SpeechTake+1<SpeechSequence->Takes.Num());
+}
+void AChaosHUD::SpeechPlayback(const UAudioComponent* Component,const USoundWave* Wave,float Percent){
+ if(Component!=SpeechAudio||Wave!=ActiveSpeechSound||SpeechPaused||SpeechTakeFinished)return;HavePlaybackPercent=true;SpeechClock=FMath::Clamp(Percent,0.f,1.f)*ActiveSpeechDuration;
+}
+void AChaosHUD::SpeechFinished(UAudioComponent* Component){
+ if(Component!=SpeechAudio)return;SpeechTakeFinished=true;SpeechClock=ActiveSpeechDuration;++NaturalSpeechEnds;
+}
 void AChaosHUD::StopSpeech(){
- if(IsValid(SpeechAudio)){SpeechAudio->Stop();SpeechAudio->DestroyComponent();}SpeechAudio=nullptr;SpeechSequence=nullptr;SpeechTake=0;SpeechClock=0;SpeechKey.Empty();SpeechSpeaker.Empty();SpeechPaused=false;SpeechTakeStarted=false;MouthAmount=0;
+ if(IsValid(SpeechAudio)){SpeechAudio->OnAudioFinishedNative.RemoveAll(this);SpeechAudio->OnAudioPlaybackPercentNative.RemoveAll(this);SpeechAudio->Stop();SpeechAudio->DestroyComponent();}
+ SpeechAudio=nullptr;ActiveSpeechSound=nullptr;ActiveEnvelope=nullptr;ActiveSpeechDuration=0;SpeechReveal=0;SpeechTakeFinished=false;HavePlaybackPercent=false;TextRevealOverride=false;SpeechSequence=nullptr;SpeechTake=0;SpeechClock=0;SpeechKey.Empty();SpeechSpeaker.Empty();SpeechPaused=false;SpeechTakeStarted=false;MouthAmount=0;
 }
 void AChaosHUD::StartSpeechTake(){
- if(IsValid(SpeechAudio)){SpeechAudio->Stop();SpeechAudio->DestroyComponent();}SpeechAudio=nullptr;
- if(!SpeechSequence||!SpeechSequence->Takes.IsValidIndex(SpeechTake)){SpeechSpeaker.Empty();return;}
- const auto& Take=SpeechSequence->Takes[SpeechTake];SpeechSpeaker=Take.Speaker;SpeechClock=0;SpeechTakeStarted=true;
- SpeechAudio=UGameplayStatics::SpawnSound2D(this,Take.Sound,MasterVolume*VoiceVolume,1,0,nullptr,false,false);
+ if(IsValid(SpeechAudio)){SpeechAudio->OnAudioFinishedNative.RemoveAll(this);SpeechAudio->OnAudioPlaybackPercentNative.RemoveAll(this);SpeechAudio->Stop();SpeechAudio->DestroyComponent();}SpeechAudio=nullptr;
+ if(!SpeechSequence||!SpeechSequence->Takes.IsValidIndex(SpeechTake)){SpeechSpeaker.Empty();SpeechReveal=1;return;}
+ const auto& Take=SpeechSequence->Takes[SpeechTake];SpeechSpeaker=Take.Speaker;SpeechClock=0;SpeechTakeStarted=true;SpeechTakeFinished=false;HavePlaybackPercent=false;
+ ActiveSpeechSound=Take.Sound;ActiveSpeechDuration=Take.Duration;ActiveEnvelope=&Take.Envelope;
+ if(SpeechPace==0&&Take.RelaxedSound){ActiveSpeechSound=Take.RelaxedSound;ActiveSpeechDuration=Take.RelaxedDuration;ActiveEnvelope=&Take.RelaxedEnvelope;}
+ else if(SpeechPace==2&&Take.QuickSound){ActiveSpeechSound=Take.QuickSound;ActiveSpeechDuration=Take.QuickDuration;ActiveEnvelope=&Take.QuickEnvelope;}
+ SpeechAudio=UGameplayStatics::CreateSound2D(this,ActiveSpeechSound,MasterVolume*VoiceVolume,1,0,nullptr,false,false);
+ if(IsValid(SpeechAudio)){SpeechAudio->OnAudioFinishedNative.AddUObject(this,&AChaosHUD::SpeechFinished);SpeechAudio->OnAudioPlaybackPercentNative.AddUObject(this,&AChaosHUD::SpeechPlayback);SpeechAudio->Play();}
 }
 void AChaosHUD::UpdateSpeech(float D){
  if(Phase<0||Screen==EChaosScreen::Results||CaseFailed){if(!SpeechKey.IsEmpty())StopSpeech();return;}
  const auto L=CurrentLine();const FString Desired=Feedback.IsEmpty()?L.Speaker+TEXT("|")+L.Text:TEXT("Feedback|")+Feedback;
- if(Desired!=SpeechKey){StopSpeech();SpeechKey=Desired;if(CourtAudio)SpeechSequence=CourtAudio->Speech.Find(Desired);}
+ if(Desired!=SpeechKey){StopSpeech();SpeechKey=Desired;SpeechPace=RevealSpeed<40?0:RevealSpeed>=60?2:1;if(CourtAudio)SpeechSequence=CourtAudio->Speech.Find(Desired);}
  const bool Allowed=(Screen==EChaosScreen::Play||Screen==EChaosScreen::Closing)&&Impact<=0&&GavelTime<=0;
  if(!Allowed){if(IsValid(SpeechAudio)&&!SpeechPaused)SpeechAudio->SetPaused(true);SpeechPaused=true;MouthAmount=FMath::FInterpTo(MouthAmount,0.f,D,24);return;}
  if(SpeechPaused){if(IsValid(SpeechAudio))SpeechAudio->SetPaused(false);SpeechPaused=false;}
  if(!SpeechSequence||!SpeechSequence->Takes.IsValidIndex(SpeechTake)){MouthAmount=FMath::FInterpTo(MouthAmount,0.f,D,24);return;}
  if(!SpeechTakeStarted)StartSpeechTake();
- const auto& Take=SpeechSequence->Takes[SpeechTake];
+ if(SpeechTakeFinished){++SpeechTake;StartSpeechTake();if(!SpeechSequence->Takes.IsValidIndex(SpeechTake))return;}
  if(IsValid(SpeechAudio))SpeechAudio->SetVolumeMultiplier(MasterVolume*VoiceVolume);
- const float Frame=SpeechClock*Take.EnvelopeHz;int32 I=FMath::FloorToInt(Frame);float Open=0;
- if(Take.Envelope.IsValidIndex(I))Open=FMath::Lerp(Take.Envelope[I],Take.Envelope[FMath::Min(I+1,Take.Envelope.Num()-1)],Frame-I);
+ if(!HavePlaybackPercent)SpeechClock=FMath::Min(ActiveSpeechDuration,SpeechClock+D);
+ // The clock drives presentation only. A playing component is never stopped by a duration timer.
+ if(!IsValid(SpeechAudio)&&SpeechClock>=ActiveSpeechDuration)SpeechTakeFinished=true;
+ float Total=0,Elapsed=SpeechClock;for(int32 I=0;I<SpeechSequence->Takes.Num();++I){const auto& T=SpeechSequence->Takes[I];float Duration=T.Duration;if(SpeechPace==0&&T.RelaxedSound)Duration=T.RelaxedDuration;else if(SpeechPace==2&&T.QuickSound)Duration=T.QuickDuration;if(I==SpeechTake)Duration=ActiveSpeechDuration;Total+=Duration;if(I<SpeechTake)Elapsed+=Duration;}SpeechReveal=FMath::Clamp(Elapsed/FMath::Max(.01f,Total),0.f,1.f);
+ const auto& Take=SpeechSequence->Takes[SpeechTake];const float Frame=SpeechClock*Take.EnvelopeHz;int32 I=FMath::FloorToInt(Frame);float Open=0;
+ if(ActiveEnvelope&&ActiveEnvelope->IsValidIndex(I))Open=FMath::Lerp((*ActiveEnvelope)[I],(*ActiveEnvelope)[FMath::Min(I+1,ActiveEnvelope->Num()-1)],Frame-I);
  MouthAmount=FMath::FInterpTo(MouthAmount,Open,D,24);
  if(Court::Testing()&&SpeechSpeaker==TEXT("Benny")){TestMouthMin=FMath::Min(TestMouthMin,MouthAmount);TestMouthMax=FMath::Max(TestMouthMax,MouthAmount);}
- SpeechClock+=D;if(SpeechClock>=Take.Duration){++SpeechTake;StartSpeechTake();}
 }
 void AChaosHUD::UpdateMusic(float D){
  ChaosPulse=FMath::Max(0.f,ChaosPulse-D*.045f);
@@ -438,21 +471,29 @@ bool AChaosHUD::ValidateAudio() const {
  if(!CourtAudio||CourtAudio->MusicLayers.Num()!=4||CourtAudio->VoicePresets.Num()!=6)return false;
  TSet<FString> Voices;for(const auto& Pair:CourtAudio->VoicePresets)Voices.Add(Pair.Value);if(Voices.Num()!=6)return false;
  for(auto W:CourtAudio->MusicLayers)if(!W||FMath::Abs(W->Duration-15.36f)>.03f){UE_LOG(LogTemp,Error,TEXT("AUDIO_DURATION %s %.3f"),*GetNameSafe(W),W?W->Duration:0);return false;}
- auto Has=[this](const FString& Key){const auto S=CourtAudio->Speech.Find(Key);if(!S||S->Takes.IsEmpty()){UE_LOG(LogTemp,Error,TEXT("MISSING_SPEECH %s"),*Key);return false;}for(const auto& T:S->Takes)if(!T.Sound||T.Duration<=0||T.Envelope.IsEmpty())return false;return true;};
+ auto Has=[this](const FString& Key){const auto S=CourtAudio->Speech.Find(Key);if(!S||S->Takes.IsEmpty()){UE_LOG(LogTemp,Error,TEXT("MISSING_SPEECH %s"),*Key);return false;}for(const auto& T:S->Takes)if(!T.Sound||T.Duration<=0||T.Envelope.IsEmpty()||!T.RelaxedSound||!T.QuickSound||T.RelaxedEnvelope.IsEmpty()||T.QuickEnvelope.IsEmpty())return false;return true;};
  for(const auto& L:Case->Consultation)if(!Has(L.Speaker+TEXT("|")+L.Text))return false;
  for(const auto& L:Case->Opening)if(!Has(L.Speaker+TEXT("|")+L.Text))return false;
  for(const auto& L:Case->Verdict)if(!Has(L.Speaker+TEXT("|")+L.Text))return false;
  for(const auto& S:Case->Stages){for(const auto& L:S.Resolution)if(!Has(L.Speaker+TEXT("|")+L.Text))return false;for(const auto& T:S.Statements)if(!Has(S.Speaker+TEXT("|")+T.Text)||!Has(TEXT("Feedback|")+T.Press))return false;}
  if(!Has(TEXT("Oliver|")+Case->ClosingPrompt))return false;
+ if(ActiveCase>0){if(Case->CastModels.Num()!=2||Case->SpeakerNames.Num()!=2)return false;for(const auto& P:Case->CastModels)if(auto A=Cast.FindRef(P.Key).Get())if(auto C=A->FindComponentByClass<USkeletalMeshComponent>())if(C->GetSkeletalMeshAsset()!=P.Value)return false;}
  for(const auto& P:Cast)if(auto A=P.Value.Get())if(auto C=A->FindComponentByClass<USkeletalMeshComponent>())if(!C->GetSkeletalMeshAsset()->FindMorphTarget(TEXT("TalkOpen"))||!C->GetSkeletalMeshAsset()->FindMorphTarget(TEXT("SmileHide"))){UE_LOG(LogTemp,Error,TEXT("MISSING_MORPHS %s count=%d"),*P.Key.ToString(),C->GetSkeletalMeshAsset()->GetMorphTargets().Num());return false;}
  return true;
 }
 void AChaosHUD::RunAudioTests(){
  TestAudioOK=ValidateAudio();UE_LOG(LogTemp,Display,TEXT("AUDIO_CHECK coverage=%d"),TestAudioOK);
  FTimerHandle A,B,C,D,E;
- GetWorld()->GetTimerManager().SetTimer(A,[this](){StopSpeech();Phase=0;Dialogue=0;Resolution=false;Feedback.Empty();Impact=GavelTime=0;Screen=EChaosScreen::Play;CourtHeat=ChaosPulse=0;MasterVolume=.8f;VoiceVolume=.9f;MusicVolume=.4f;TestMouthMin=1;TestMouthMax=0;},3.3f,false);
+ GetWorld()->GetTimerManager().SetTimer(A,[this](){StopSpeech();Phase=0;Dialogue=0;Resolution=false;Feedback.Empty();Impact=GavelTime=0;Screen=EChaosScreen::Play;CourtHeat=ChaosPulse=0;MasterVolume=.8f;VoiceVolume=.9f;MusicVolume=.4f;RevealSpeed=42;TestMouthMin=1;TestMouthMax=0;},3.3f,false);
  GetWorld()->GetTimerManager().SetTimer(B,[this](){TestAudioOK&=SpeechAudio&&SpeechAudio->IsPlaying()&&SpeechSpeaker==TEXT("Benny")&&MusicStems.Num()==4;for(auto Stem:MusicStems)TestAudioOK&=Stem&&Stem->IsPlaying();TestQuietLayer=MusicStems.Num()>2?MusicStems[2]->VolumeMultiplier:1;TestPausedClock=SpeechClock;UE_LOG(LogTemp,Display,TEXT("AUDIO_CHECK playback=%d speaker=%s stems=%d"),TestAudioOK,*SpeechSpeaker,MusicStems.Num());SetScreen(EChaosScreen::Settings);},4.2f,false);
  GetWorld()->GetTimerManager().SetTimer(C,[this](){TestAudioOK&=SpeechAudio&&SpeechAudio->GetPlayState()==EAudioComponentPlayState::Paused&&FMath::Abs(SpeechClock-TestPausedClock)<.05f;UE_LOG(LogTemp,Display,TEXT("AUDIO_CHECK pause=%d clock=%.3f expected=%.3f"),TestAudioOK,SpeechClock,TestPausedClock);SetScreen(EChaosScreen::Play);ChaosPulse=1;CourtHeat=.95f;},4.6f,false);
- GetWorld()->GetTimerManager().SetTimer(D,[this](){TestAudioOK&=SpeechAudio&&SpeechAudio->IsPlaying()&&SpeechClock>TestPausedClock&&TestMouthMax-TestMouthMin>.08f;TestAudioOK&=MusicStems.Num()>2&&MusicStems[2]->VolumeMultiplier>TestQuietLayer+.003f;UE_LOG(LogTemp,Display,TEXT("AUDIO_CHECK resume=%d gain=%.4f quiet=%.4f"),TestAudioOK,MusicStems.Num()>2?MusicStems[2]->VolumeMultiplier:0,TestQuietLayer);LineElapsed=10000;Next();},5.5f,false);
- GetWorld()->GetTimerManager().SetTimer(E,[this](){TestAudioOK&=SpeechAudio&&SpeechAudio->IsPlaying()&&SpeechSpeaker==TEXT("Oliver");FString R=FString::Printf(TEXT("%s: dialogue coverage, six voices, mouth morphs, speech playback/pause/resume/replacement, four synchronized music layers and chaos response; mouth range %.2f..%.2f"),TestAudioOK?TEXT("PASS"):TEXT("FAIL"),TestMouthMin,TestMouthMax);FFileHelper::SaveStringToFile(R,*(FPaths::ProjectSavedDir()/TEXT("AudioTest.txt")));UE_LOG(LogTemp,Display,TEXT("COURT_AUDIO_TEST: %s"),*R);},5.9f,false);
+ GetWorld()->GetTimerManager().SetTimer(D,[this](){TestAudioOK&=SpeechAudio&&SpeechAudio->IsPlaying()&&SpeechClock>TestPausedClock&&TestMouthMax-TestMouthMin>.08f;TestAudioOK&=MusicStems.Num()>2&&MusicStems[2]->VolumeMultiplier>TestQuietLayer+.003f;UE_LOG(LogTemp,Display,TEXT("AUDIO_CHECK resume=%d gain=%.4f quiet=%.4f"),TestAudioOK,MusicStems.Num()>2?MusicStems[2]->VolumeMultiplier:0,TestQuietLayer);LineElapsed=10000;Next();TestAudioOK&=Dialogue==0&&SpeechSpeaker==TEXT("Benny")&&SpeechAudio&&SpeechAudio->IsPlaying();Action(TEXT("skip_voice"));Next();},5.5f,false);
+ GetWorld()->GetTimerManager().SetTimer(E,[this](){TestAudioOK&=SpeechAudio&&SpeechAudio->IsPlaying()&&SpeechSpeaker==TEXT("Oliver");FString R=FString::Printf(TEXT("%s: dialogue coverage, six voices, mouth morphs, speech playback/pause/resume/replacement, four synchronized music layers and chaos response; mouth range %.2f..%.2f"),TestAudioOK?TEXT("PASS"):TEXT("FAIL"),TestMouthMin,TestMouthMax);UE_LOG(LogTemp,Display,TEXT("INITIAL_AUDIO_CHECK %s"),*R);UE_LOG(LogTemp,Display,TEXT("COURT_AUDIO_TEST: %s"),*R);},5.9f,false);
+ FTimerHandle Quick,CheckQuick,Relaxed,CheckRelaxed,FeedbackTest,Done;
+ GetWorld()->GetTimerManager().SetTimer(Quick,[this](){RevealSpeed=70;StopSpeech();Phase=0;Dialogue=1;Feedback.Empty();NaturalSpeechEnds=0;},6.3f,false);
+ GetWorld()->GetTimerManager().SetTimer(CheckQuick,[this](){TestAudioOK&=SpeechSequence&&ActiveSpeechSound==SpeechSequence->Takes[SpeechTake].QuickSound&&SpeechReveal>0&&SpeechReveal<1&&SpeechBusy();},7.2f,false);
+ GetWorld()->GetTimerManager().SetTimer(Relaxed,[this](){TestAudioOK&=NaturalSpeechEnds>=1&&!SpeechBusy();RevealSpeed=24;StopSpeech();Dialogue=2;},14.f,false);
+ GetWorld()->GetTimerManager().SetTimer(CheckRelaxed,[this](){TestAudioOK&=SpeechSequence&&ActiveSpeechSound==SpeechSequence->Takes[SpeechTake].RelaxedSound&&SpeechReveal>0&&SpeechReveal<1;Action(TEXT("skip_voice"));},15.f,false);
+ GetWorld()->GetTimerManager().SetTimer(FeedbackTest,[this](){RevealSpeed=42;StopSpeech();Phase=2;Statement=1;Feedback=Case->Stages[0].Statements[1].Press;},16.f,false);
+ GetWorld()->GetTimerManager().SetTimer(Done,[this](){TestAudioOK&=NaturalSpeechEnds>=3&&!SpeechBusy();FString R=FString::Printf(TEXT("%s: full voice completion callbacks, protected Continue, explicit skip, pitch-preserving relaxed/quick pace, playback-driven text and mouth, multi-speaker feedback, pause/resume and adaptive music; natural ends=%d"),TestAudioOK?TEXT("PASS"):TEXT("FAIL"),NaturalSpeechEnds);FFileHelper::SaveStringToFile(R,*(FPaths::ProjectSavedDir()/TEXT("AudioTest.txt")));UE_LOG(LogTemp,Display,TEXT("COURT_AUDIO_TEST %s"),*R);},24.f,false);
 }

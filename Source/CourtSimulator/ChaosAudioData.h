@@ -9,6 +9,12 @@ struct FChaosSpeechTake {
  UPROPERTY(EditAnywhere,BlueprintReadOnly) FString Speaker;
  UPROPERTY(EditAnywhere,BlueprintReadOnly) FString Text;
  UPROPERTY(EditAnywhere,BlueprintReadOnly) TObjectPtr<USoundWave> Sound;
+ UPROPERTY(EditAnywhere,BlueprintReadOnly) TObjectPtr<USoundWave> RelaxedSound;
+ UPROPERTY(EditAnywhere,BlueprintReadOnly) TObjectPtr<USoundWave> QuickSound;
+ UPROPERTY(EditAnywhere,BlueprintReadOnly) float RelaxedDuration=0;
+ UPROPERTY(EditAnywhere,BlueprintReadOnly) float QuickDuration=0;
+ UPROPERTY(EditAnywhere,BlueprintReadOnly) TArray<float> RelaxedEnvelope;
+ UPROPERTY(EditAnywhere,BlueprintReadOnly) TArray<float> QuickEnvelope;
  UPROPERTY(EditAnywhere,BlueprintReadOnly) float Duration=0;
  UPROPERTY(EditAnywhere,BlueprintReadOnly) float EnvelopeHz=40;
  UPROPERTY(EditAnywhere,BlueprintReadOnly) TArray<float> Envelope;

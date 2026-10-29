@@ -1,5 +1,5 @@
 """Authored case sources. Fixed facts, fair contradictions, and complete resolutions."""
-import json
+import json,re
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def line(speaker,text,emotion='Speaking'):return dict(speaker=speaker,text=text,emotion=emotion)
@@ -42,6 +42,23 @@ cases=[dict(
  closing_prompt='Connect the photograph, the different keys, receipt N204 and the bank count. Where did the donations go?',
  conclusions=['Benny emptied the box with K4 and returned the money anonymously.','Brick collected sealed C17 under policy. The night-safe receipt and bank count account for all 480 pounds.','The 16:35 photograph proves the box was empty at 16:30.'],correct_conclusion=1,
  verdict=[line('Bumble','The money was present at 16:35. Benny\'s key could not open the box. The authorised deposit and bank count account for every pound.'),line('Bumble','On the charge of stealing the charity donations: NOT GUILTY!','Happy'),line('Benny','Can the charity keep the interest? I have been paying in anxiety.','Happy'),line('Milo','I have added a new line to my checklist: ask security.','Embarrassed'),line('Oliver','Follow the actual money. A nearby pocket is not a chain of custody.','Happy'),line('Brick','Receipt filed. Case closed. Napkins returned.')])]
+# Shared legal-team roles, distinct clients and witnesses for each story.
+for case,renames,models,voices in [
+ (cases[0],{'Benny':'Renzo Roux','Milo':'Pip Sparks'},{'Benny':'Renzo','Milo':'Pip'},{}),
+ (cases[1],{'Benny':'Nora Notes','Milo':'Agnes Penny'},{'Benny':'Nora','Milo':'Agnes'},{'Benny':dict(voice='af_bella',speed=1.02,lang='en-us'),'Milo':dict(voice='bf_emma',speed=.97,lang='en-gb')})]:
+ def rewrite(value):
+  if isinstance(value,str):
+   for old,new in renames.items():
+    value=value.replace('Milo Mopps',renames.get('Milo','Milo')).replace('Benny Buns',renames.get('Benny','Benny'))
+    value=value.replace(old,new)
+    value=re.sub(r'\b'+re.escape(old.upper())+r'\b(?!:)',new.upper(),value)
+   return value
+  if isinstance(value,list):return [rewrite(v) for v in value]
+  if isinstance(value,dict):return {k:(v if k=='speaker' else rewrite(v)) for k,v in value.items()}
+  return value
+ updated=rewrite(case);case.clear();case.update(updated)
+ case['speaker_names']=renames;case['cast_models']=models;case['voice_profiles']=voices
+ case['speaker_roles']={'Benny':'CATERER' if case['number']==2 else 'FUNDRAISER VENDOR','Milo':'STAGE MANAGER' if case['number']==2 else 'CHARITY VOLUNTEER'}
 out=ROOT/'Art'/'Cases';out.mkdir(parents=True,exist_ok=True)
 for case in cases:
  assert len(case['evidence'])==6 and len(case['stages'])==3

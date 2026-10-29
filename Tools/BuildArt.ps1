@@ -20,6 +20,7 @@ Invoke-BlenderStage 'finish_props' 'FINISH_PROPS_OK'
 Invoke-BlenderStage 'polish_notice' 'NOTICE_POLISH_OK'
 Invoke-BlenderStage 'build_cast' 'CAST_V2_OK'
 Invoke-BlenderStage 'rig_cast' 'RIG_CAST_OK'
+Invoke-BlenderStage 'build_case_cast' 'CASE_CAST_OK'
 Invoke-BlenderStage 'build_case_props' 'CASE_PROPS_OK'
 python "$projectRoot\Tools\author_extra_cases.py"
 if ($LASTEXITCODE -ne 0) { throw 'Case source generation failed' }

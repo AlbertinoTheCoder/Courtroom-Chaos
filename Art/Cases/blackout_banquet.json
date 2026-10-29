@@ -44,7 +44,7 @@
     },
     {
       "speaker": "Bumble",
-      "text": "Milo, give us your observations. Keep your conclusions on a separate plate.",
+      "text": "Pip Sparks, give us your observations. Keep your conclusions on a separate plate.",
       "emotion": "Speaking"
     }
   ],
@@ -54,13 +54,13 @@
       "title": "Battery hot plate",
       "category": "OBJECT",
       "description": "20:24. The equipment check shows a hot plate on a blue battery cassette. No mains lead is attached.",
-      "inspection": "The signed equipment check identifies a 48 V self-contained battery. The wall socket behind the table is empty. Benny was not drawing power from the stage circuit.",
+      "inspection": "The signed equipment check identifies a 48 V self-contained battery. The wall socket behind the table is empty. Renzo Roux was not drawing power from the stage circuit.",
       "unlock_stage": 0,
       "rows": [
         "20:24 / EQUIPMENT CHECK",
         "48 V BATTERY CASSETTE FITTED",
         "Mains socket: EMPTY",
-        "Checked and signed: Milo Mopps"
+        "Checked and signed: Pip Sparks"
       ],
       "mesh": "BatteryHotplate",
       "diagram": "battery"
@@ -70,7 +70,7 @@
       "title": "Breaker event log",
       "category": "DOCUMENT",
       "description": "The stage circuit was healthy at 20:20. Its protective breaker tripped at 20:32:04.",
-      "inspection": "A time-stamped protective trip occurred twelve minutes after Benny arrived. This was an overload trip, not a manual switch-off.",
+      "inspection": "A time-stamped protective trip occurred twelve minutes after Renzo Roux arrived. This was an overload trip, not a manual switch-off.",
       "unlock_stage": 0,
       "rows": [
         "STAGE CIRCUIT / EVENT HISTORY",
@@ -117,7 +117,7 @@
       "id": "load_report",
       "title": "Electrician load test",
       "category": "DOCUMENT",
-      "description": "The electrician reproduced the trip using the urn and fog machine. Benny's battery unit was isolated.",
+      "description": "The electrician reproduced the trip using the urn and fog machine. Renzo Roux's battery unit was isolated.",
       "inspection": "1,500 W plus 1,200 W equals 2,700 W: 400 W above the circuit limit. The protective breaker tripped again. The cause was the event setup, not the battery hot plate.",
       "unlock_stage": 2,
       "rows": [
@@ -134,7 +134,7 @@
       "title": "Breaker inspection tag",
       "category": "DOCUMENT",
       "description": "No damaged wiring or tampering was found. The breaker opened automatically and reset after the fog machine was unplugged.",
-      "inspection": "This supports an automatic safety response. There is no evidence of a deliberate interruption or a connection from Benny's equipment.",
+      "inspection": "This supports an automatic safety response. There is no evidence of a deliberate interruption or a connection from Renzo Roux's equipment.",
       "unlock_stage": 2,
       "rows": [
         "INSPECTION / STAGE PANEL",
@@ -154,7 +154,7 @@
       "evidence": "battery_photo",
       "statements": [
         {
-          "text": "Benny set up his hot plate at the vendor table.",
+          "text": "Renzo Roux set up his hot plate at the vendor table.",
           "press": "MILO: I checked the equipment at twenty-four minutes past eight.",
           "emotion": "Speaking"
         },
@@ -280,8 +280,8 @@
   ],
   "closing_prompt": "Account for the disconnected hot plate, the 20:32 trip, and the reproduced overload. What caused the blackout?",
   "conclusions": [
-    "The urn and fog machine overloaded the stage circuit. Benny's battery unit was isolated.",
-    "Benny secretly switched off the lights when he arrived at 20:20.",
+    "The urn and fog machine overloaded the stage circuit. Renzo Roux's battery unit was isolated.",
+    "Renzo Roux secretly switched off the lights when he arrived at 20:20.",
     "The serving urn alone exceeded the 2,300-watt limit."
   ],
   "correct_conclusion": 0,
@@ -311,5 +311,18 @@
       "text": "A complete explanation needs a connection, a time, and a cause. We finally have all three.",
       "emotion": "Happy"
     }
-  ]
+  ],
+  "speaker_names": {
+    "Benny": "Renzo Roux",
+    "Milo": "Pip Sparks"
+  },
+  "cast_models": {
+    "Benny": "Renzo",
+    "Milo": "Pip"
+  },
+  "voice_profiles": {},
+  "speaker_roles": {
+    "Benny": "CATERER",
+    "Milo": "STAGE MANAGER"
+  }
 }

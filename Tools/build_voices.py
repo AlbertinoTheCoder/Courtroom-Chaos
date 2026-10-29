@@ -16,6 +16,7 @@ PROFILES={
  'Brick':dict(voice='am_adam',speed=.92,lang='en-us',direction='Slow, matter-of-fact bailiff')}
 ALIASES={k.upper():k for k in PROFILES}
 seq={}
+PROFILE_OVERRIDES={}
 def split_roles(who,text):
  parts=re.split(r'\b(OLIVER|VICTOR|BUMBLE|BENNY|MILO|BRICK):\s*',text)
  if len(parts)==1:return [(who,text.strip())]
@@ -43,6 +44,16 @@ for path in sorted((ROOT/'Art'/'Cases').glob('*.json')):
   for entry in stage['statements']:add(stage['speaker'],entry['text']);add('Feedback',entry['press'])
   for entry in stage['resolution']:add(entry['speaker'],entry['text'])
  add('Oliver',data['closing_prompt'])
+ # Voice identity follows the case's client/witness appearance, including feedback speakers.
+ texts=[]
+ for section in ['consultation','opening','verdict']:texts.extend((l['speaker'],l['text']) for l in data[section])
+ for stage in data['stages']:
+  texts.extend((stage['speaker'],l['text']) for l in stage['statements'])
+  for l in stage['statements']:texts.extend(split_roles('Feedback',l['press']))
+  texts.extend((l['speaker'],l['text']) for l in stage['resolution'])
+ for who,words in texts:
+  if who in data.get('voice_profiles',{}):PROFILE_OVERRIDES[(who,words)]=data['voice_profiles'][who]
+
 # Fixed feedback authored in the runtime, including wrong choices.
 source=(ROOT/'Source/CourtSimulator/ChaosGame.cpp').read_text()
 for raw in re.findall(r'TEXT\("((?:[^"\\]|\\.)*)"\)',source):
@@ -73,27 +84,32 @@ for index,(key,takes) in enumerate(seq.items()):
   assert who in PROFILES,(who,text)
   name=clip_id(who,text);ids.append(name)
   if name in clips:continue
-  profile=PROFILES[who];destination=OUT/(name+'.wav');signature=hashlib.sha256(json.dumps([profile,spoken(text),'master-v1']).encode()).hexdigest()
-  metadata=destination.with_suffix('.json')
-  if destination.exists() and metadata.exists() and json.loads(metadata.read_text()).get('signature')==signature:
-   item=json.loads(metadata.read_text())
-  else:
-   audio,rate=kokoro.create(spoken(text),voice=profile['voice'],speed=profile['speed'],lang=profile['lang'])
-   audio=np.asarray(audio,dtype=np.float32)
-   # Trim excessive padding, retain breaths, and add short click-free lead/tail silence.
-   active=np.flatnonzero(np.abs(audio)>.006)
-   assert len(active)>rate*.08,(who,text,'silent speech')
-   audio=audio[max(0,active[0]-int(rate*.045)):min(len(audio),active[-1]+int(rate*.09))]
-   audio-=float(np.mean(audio));peak=float(np.max(np.abs(audio)));audio*=min(2.5,.78/max(.01,peak))
-   fade=min(240,len(audio)//10);audio[:fade]*=np.linspace(0,1,fade);audio[-fade:]*=np.linspace(1,0,fade)
-   audio=np.concatenate((np.zeros(int(rate*.045),dtype=np.float32),audio,np.zeros(int(rate*.10),dtype=np.float32)))
-   sf.write(destination,audio,rate,subtype='PCM_16')
-   hop=rate//40;padded=np.pad(audio,(0,(-len(audio))%hop));rms=np.sqrt(np.mean(padded.reshape(-1,hop)**2,axis=1));reference=max(.04,float(np.percentile(rms,88)))
-   envelope=np.where(rms<.008,0,np.clip((rms/reference)**.7,0,1))
-   item=dict(id=name,speaker=who,text=text,spoken=spoken(text),voice=profile['voice'],speed=profile['speed'],file=str(destination.relative_to(ROOT)).replace('\\','/'),duration=len(audio)/rate,sample_rate=rate,envelope_hz=40,envelope=[round(float(v),4) for v in envelope],peak=round(float(np.max(np.abs(audio))),4),signature=signature)
-   metadata.write_text(json.dumps(item,indent=2))
-  assert .15<item['duration']<40 and item['peak']>.05,(name,item['duration'])
-  clips[name]=item
+  base_profile=PROFILE_OVERRIDES.get((who,text),PROFILES[who]);variants={}
+  for pace,factor in [('Normal',1),('Relaxed',.80),('Quick',1.23)]:
+   profile=dict(base_profile);profile['speed']=base_profile['speed']*factor
+   variant_name=name if pace=='Normal' else name+'_'+pace
+   destination=OUT/(variant_name+'.wav');signature=hashlib.sha256(json.dumps([profile,spoken(text),'master-v1']).encode()).hexdigest()
+   metadata=destination.with_suffix('.json')
+   if destination.exists() and metadata.exists() and json.loads(metadata.read_text()).get('signature')==signature:
+    item=json.loads(metadata.read_text())
+   else:
+    audio,rate=kokoro.create(spoken(text),voice=profile['voice'],speed=profile['speed'],lang=profile['lang'])
+    audio=np.asarray(audio,dtype=np.float32)
+    # Trim excessive padding, retain breaths, and add short click-free lead/tail silence.
+    active=np.flatnonzero(np.abs(audio)>.006)
+    assert len(active)>rate*.08,(who,text,'silent speech')
+    audio=audio[max(0,active[0]-int(rate*.045)):min(len(audio),active[-1]+int(rate*.09))]
+    audio-=float(np.mean(audio));peak=float(np.max(np.abs(audio)));audio*=min(2.5,.78/max(.01,peak))
+    fade=min(240,len(audio)//10);audio[:fade]*=np.linspace(0,1,fade);audio[-fade:]*=np.linspace(1,0,fade)
+    audio=np.concatenate((np.zeros(int(rate*.045),dtype=np.float32),audio,np.zeros(int(rate*.10),dtype=np.float32)))
+    sf.write(destination,audio,rate,subtype='PCM_16')
+    hop=rate//40;padded=np.pad(audio,(0,(-len(audio))%hop));rms=np.sqrt(np.mean(padded.reshape(-1,hop)**2,axis=1));reference=max(.04,float(np.percentile(rms,88)))
+    envelope=np.where(rms<.008,0,np.clip((rms/reference)**.7,0,1))
+    item=dict(id=name,speaker=who,text=text,spoken=spoken(text),voice=profile['voice'],speed=profile['speed'],file=str(destination.relative_to(ROOT)).replace('\\','/'),duration=len(audio)/rate,sample_rate=rate,envelope_hz=40,envelope=[round(float(v),4) for v in envelope],peak=round(float(np.max(np.abs(audio))),4),signature=signature)
+    metadata.write_text(json.dumps(item,indent=2))
+   assert .15<item['duration']<40 and item['peak']>.05,(name,item['duration'])
+   variants[pace]=item
+  item=dict(variants['Normal']);item['variants']={k:v for k,v in variants.items() if k!='Normal'};clips[name]=item
  sequences[key]=ids
  print(f'VOICE {index+1}/{len(seq)}: {key[:75]}',flush=True)
 manifest=dict(engine='Kokoro-82M v1.0 / kokoro-onnx 0.6.1',model_license='Apache-2.0',profiles=PROFILES,clips=clips,sequences=sequences,envelope_hz=40)

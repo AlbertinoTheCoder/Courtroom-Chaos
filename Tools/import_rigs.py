@@ -20,7 +20,7 @@ for name in CAST:
   if material:
    u.MaterialEditingLibrary.set_material_usage(material,u.MaterialUsage.MATUSAGE_SKELETAL_MESH)
    u.MaterialEditingLibrary.set_material_usage(material,u.MaterialUsage.MATUSAGE_MORPH_TARGETS)
-   slots=mesh.materials;slots[i].material_interface=material;mesh.materials=slots
+   slots=mesh.materials;slot.set_editor_property('material_interface',material);slots[i]=slot;mesh.set_editor_property('materials',slots)
  skeleton=mesh.skeleton;assert skeleton,'Skeleton missing'
  imported=[]
  for mood in MOODS:

@@ -19,6 +19,9 @@ def line(c):return u.ChaosLine(speaker=c['speaker'],text=c['text'],emotion=c['em
 for c in sources:
  case=u.load_asset('/Game/Cases/'+c['asset']) or assets.create_asset(c['asset'],'/Game/Cases',u.ChaosCaseData,factory)
  case.case_id=c['id'];case.title=c['title'];case.subtitle=c['subtitle']
+ case.set_editor_property('speaker_names',c.get('speaker_names',{}));case.set_editor_property('speaker_roles',c.get('speaker_roles',{}))
+ models={role:u.load_asset('/Game/Characters/Rigged/SK_'+name) for role,name in c.get('cast_models',{}).items()};assert all(models.values()),models
+ case.set_editor_property('cast_models',models)
  for section in ['consultation','opening','verdict']:setattr(case,section,[line(l) for l in c[section]])
  case.evidence=[u.ChaosEvidence(id=e['id'],title=e['title'],category=e['category'],description=e['description'],inspection=e['inspection'],unlock_stage=e['unlock_stage'],illustration=u.load_asset('/Game/UI/'+c['id']+'_Evidence'+str(i)),exhibit=u.load_asset('/Game/Evidence/'+e['mesh']) if e.get('mesh') else None) for i,e in enumerate(c['evidence'])]
  case.stages=[u.ChaosStage(title=s['title'],speaker=s['speaker'],contradiction=s['contradiction'],evidence=s['evidence'],statements=[u.ChaosStatement(text=t['text'],press=t['press'],emotion=t['emotion']) for t in s['statements']],resolution=[line(l) for l in s['resolution']]) for s in c['stages']]

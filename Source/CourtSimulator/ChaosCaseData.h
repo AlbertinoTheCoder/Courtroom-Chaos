@@ -4,6 +4,7 @@
 #include "ChaosCaseData.generated.h"
 class UTexture2D;
 class UStaticMesh;
+class USkeletalMesh;
 USTRUCT(BlueprintType)
 struct FChaosLine {
  GENERATED_BODY()
@@ -47,6 +48,9 @@ public:
  UPROPERTY(EditAnywhere,BlueprintReadWrite) FName CaseId=TEXT("golden_gavel");
  UPROPERTY(EditAnywhere,BlueprintReadWrite) FString Title;
  UPROPERTY(EditAnywhere,BlueprintReadWrite) FString Subtitle;
+ UPROPERTY(EditAnywhere,BlueprintReadWrite) TMap<FName,TObjectPtr<USkeletalMesh>> CastModels;
+ UPROPERTY(EditAnywhere,BlueprintReadWrite) TMap<FString,FString> SpeakerNames;
+ UPROPERTY(EditAnywhere,BlueprintReadWrite) TMap<FString,FString> SpeakerRoles;
  UPROPERTY(EditAnywhere,BlueprintReadWrite) TArray<FChaosLine> Consultation;
  UPROPERTY(EditAnywhere,BlueprintReadWrite) TArray<FChaosLine> Opening;
  UPROPERTY(EditAnywhere,BlueprintReadWrite) TArray<FChaosEvidence> Evidence;

@@ -13,3 +13,5 @@ The new cases have their own evidence plates, posters and physical exhibits. The
 Three lives are shared by evidence and closing mistakes. The third error persists as a failed attempt; neither Continue nor reopening that case restores lives. Restart clears the complete attempt. Pressing, reviewing and inspecting do not consume lives. Per-case slots prevent one case from overwriting another. Version-2 five-confidence saves load with at most three lives and keep their trial progress.
 
 The full cast shares the corrected mouth morphs and materials across all cases. Portrait fills make Brick and Victor readable in their speaking cameras. All 120 animation clips are loaded before play to avoid first-use pauses.
+
+The banquet case now features Renzo Roux and Pip Sparks; the charity case features Nora Notes and Agnes Penny. Case CastModels map the existing client/witness gameplay roles to separate meshes. Client meshes use the Benny skeleton; witness meshes use the Milo skeleton. SpeakerNames and SpeakerRoles provide the corresponding presentation names without changing save identifiers.
