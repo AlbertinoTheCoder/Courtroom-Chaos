@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # COURTROOM CHAOS
 
@@ -112,4 +112,3 @@ The latest Windows build passed progression for all three cases, valid evidence 
 Created by **[AlbertinoTheCoder](https://github.com/AlbertinoTheCoder)** with Codex-assisted development. Characters, case scripts, scenes, procedural music, and interface assets are included in the project. Speech is synthetic, generated with Kokoro; see [audio credits](Documentation/AudioCredits.md). Unreal Engine is © Epic Games, Inc. and is governed by its own license.
 
 This is a playable **three-case prototype**. The cast uses stylized procedural models and shared performance rigs. Recorded voice acting, articulated fingers, and broader hardware testing remain future work. Public source access does not grant a separate open-source license; third-party tools retain their respective terms.
-
