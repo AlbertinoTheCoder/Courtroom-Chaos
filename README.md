@@ -24,7 +24,7 @@ Cross-examine eccentric witnesses, inspect the evidence, and keep your case aliv
 2. Extract the **entire ZIP** to a folder.
 3. Double-click **CourtroomChaos.exe** in that folder.
 
-Keep the `Game` folder beside the EXE: it contains Unreal's runtime and the game assets. No Unreal Editor, Python, model download, account, or internet connection is needed to play. This is a Windows x64 development build; broader hardware compatibility has not been verified. If Unreal asks for its prerequisites, run `Game/Engine/Extras/Redist/en-us/UEPrereqSetup_x64.exe`.
+Keep the `Game` folder beside the EXE: it contains Unreal's runtime and the game assets. No Unreal Editor, Python, model download, account, or internet connection is needed to play. This is a Windows x64 development build; broader hardware compatibility has not been verified. If Unreal asks for its prerequisites, run `vc_redist.x64.exe` and `GameInputRedist.msi` under `Game/Engine/Extras/Redist/en-us`.
 
 In this source checkout, the root EXE launches the package under `Builds/Windows`. Build it locally or download the release to play. GitHub's **Code → Download ZIP** contains project source rather than the packaged runtime.
 
@@ -112,3 +112,4 @@ The latest Windows build passed progression for all three cases, valid evidence 
 Created by **[AlbertinoTheCoder](https://github.com/AlbertinoTheCoder)** with Codex-assisted development. Characters, case scripts, scenes, procedural music, and interface assets are included in the project. Speech is synthetic, generated with Kokoro; see [audio credits](Documentation/AudioCredits.md). Unreal Engine is © Epic Games, Inc. and is governed by its own license.
 
 This is a playable **three-case prototype**. The cast uses stylized procedural models and shared performance rigs. Recorded voice acting, articulated fingers, and broader hardware testing remain future work. Public source access does not grant a separate open-source license; third-party tools retain their respective terms.
+

@@ -1,5 +1,6 @@
 """Bundle the existing Windows package without saves, logs, or debug symbols."""
 import hashlib
+import os
 from pathlib import Path
 import zipfile
 
@@ -10,6 +11,9 @@ output.mkdir(exist_ok=True)
 archive = output / 'CourtroomChaos-Windows-x64.zip'
 assert (runtime / 'CourtSimulator.exe').is_file(), 'Package the game first.'
 assert (root / 'CourtroomChaos.exe').is_file(), 'Build the root launcher first.'
+redist = Path(os.environ.get('UE_ROOT', 'E:/UE_5.8')) / 'Engine/Extras/Redist/en-us'
+assert (redist / 'vc_redist.x64.exe').is_file(), 'Set UE_ROOT to include the Windows prerequisites.'
+assert (redist / 'GameInputRedist.msi').is_file(), 'GameInput prerequisite is missing.'
 
 with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
     bundle.write(root / 'CourtroomChaos.exe', 'CourtroomChaos.exe')
@@ -20,11 +24,13 @@ with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslev
         'Three authored cases, offline synthetic voices, adaptive music, and three lives per attempt.\n'
         'Space: advance. Q: press. E: evidence. H: transcript. Escape: back/save.\n'
         'Skip Voice explicitly interrupts speech; Continue waits for it to finish.\n\n'
-        'If prerequisites are requested, run Game/Engine/Extras/Redist/en-us/UEPrereqSetup_x64.exe.\n'
+        'If prerequisites are requested, run vc_redist.x64.exe and GameInputRedist.msi in Game/Engine/Extras/Redist/en-us.\n'
         'Windows x64 development build. Broader hardware testing remains future work.\n\n'
         'Source and bug reports: https://github.com/AlbertinoTheCoder/Courtroom-Chaos\n'
         'Audio credits: CREDITS.md\n')
     bundle.write(root / 'Documentation' / 'AudioCredits.md', 'CREDITS.md')
+    for name in ['vc_redist.x64.exe', 'GameInputRedist.msi']:
+        bundle.write(redist / name, 'Game/Engine/Extras/Redist/en-us/' + name)
     for file in sorted(runtime.rglob('*')):
         if not file.is_file():
             continue
@@ -39,6 +45,7 @@ with zipfile.ZipFile(archive) as bundle:
     names = bundle.namelist()
     assert 'CourtroomChaos.exe' in names and 'Game/CourtSimulator.exe' in names
     assert 'Game/CourtSimulator/Binaries/Win64/CourtSimulator.exe' in names
+    assert 'Game/Engine/Extras/Redist/en-us/vc_redist.x64.exe' in names
     assert not any('/saved/' in name.lower() or name.lower().endswith('.pdb') for name in names)
     assert bundle.testzip() is None, 'Archive CRC verification failed.'
 digest = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
