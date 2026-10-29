@@ -10,3 +10,7 @@ Builds/
 Art/*.log
 **/__pycache__/
 Build/Windows/FileOpenOrder/
+Releases/
+.env
+.env.*
+!.env.example

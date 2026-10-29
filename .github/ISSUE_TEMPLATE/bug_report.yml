@@ -1,0 +1,24 @@
+name: Report a bug
+description: Something went wrong in the courtroom.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: How to reproduce
+      description: Include the case, testimony, selected evidence, and steps if relevant.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Release and Windows version
+      placeholder: v0.1.0 / Windows 11
+  - type: textarea
+    attributes:
+      label: Screenshots or additional details

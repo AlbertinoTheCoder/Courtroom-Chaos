@@ -1,0 +1,25 @@
+name: Source checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate Python and authored JSON
+        run: |
+          python - <<'PY'
+          import ast, json, pathlib
+          for path in pathlib.Path('Tools').rglob('*.py'):
+              ast.parse(path.read_text(encoding='utf-8-sig'), filename=str(path))
+          for path in pathlib.Path('Art').rglob('*.json'):
+              json.loads(path.read_text(encoding='utf-8-sig'))
+          json.loads(pathlib.Path('CourtSimulator.uproject').read_text(encoding='utf-8-sig'))
+          print('Python syntax and authored JSON passed. Unreal runtime checks run locally.')
+          PY
